@@ -2,6 +2,7 @@
 #define ARGPARSE_HPP
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace argparse {
@@ -9,7 +10,8 @@ namespace argparse {
     class ArgumentParser
     {
       private:
-        using container_type = std::vector<std::string>;
+        using element_type   = std::string_view;
+        using container_type = std::vector<element_type>;
 
 
       public:
@@ -22,7 +24,7 @@ namespace argparse {
         [[nodiscard]] auto args() const noexcept { return this->argv; }
 
       public:
-        std::string program_name;
+        element_type program_name;
 
 
       private:

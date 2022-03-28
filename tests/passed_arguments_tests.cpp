@@ -8,5 +8,5 @@ TEST_CASE("Passed arguments test", "[argparse]")
     const char *argv[] = { "program_name", "first-arg", "second-arg" };
     const auto  parser = argparse::ArgumentParser<argc>(argv);
 
-    REQUIRE(parser.args() == std::vector<std::string>{ "program_name", "first-arg", "second-arg" });
+    REQUIRE(parser.args() == std::vector<std::string_view>{ "program_name", "first-arg", "second-arg" });
 }
