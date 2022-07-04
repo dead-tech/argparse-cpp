@@ -1,7 +1,14 @@
 #ifndef ARGPARSE_HPP
 #define ARGPARSE_HPP
 
+#include <algorithm>
+#include <assert.h>
+#include <charconv>
+#include <iomanip>
+#include <iostream>
+#include <optional>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -9,69 +16,147 @@
 
 namespace argparse {
 
-    enum class ArgumentType { STRING = 0, INT, BOOL };
+    namespace utils {
+        static std::optional<bool> str_to_bool(const std::string &str)
+        {
+            if (str == "false") {
+                return false;
+            } else if (str == "true") {
+                return true;
+            }
 
-    struct Value
+            return std::nullopt;
+        }
+    }// namespace utils
+
+    enum class ArgTypes { STRING = 0, INT, BOOL };
+
+    struct Arg
     {
-      private:
-        using variant_type = std::variant<std::string, int, bool>;
+      public:
+        std::string name;
+        ArgTypes    type;
+        bool        required;
 
       public:
-        explicit Value(variant_type value) : variant{ std::move(value) } {}
-
-        template<typename VariantType>
-        [[nodiscard]] auto as() const
-        {
-            return std::get<VariantType>(this->variant);
-        }
-
-      private:
-        variant_type variant;
+        friend bool operator==(const Arg &rhs, const Arg &lhs) { return rhs.name == lhs.name; }
     };
 
-    template<std::size_t ArgCount>
+    namespace impl {
+        template<typename CustomKey, typename ValueType, typename HashFunction>
+        class ArgMap : public std::unordered_map<CustomKey, ValueType, HashFunction>
+        {
+          public:
+            ValueType at(const std::string &name) const
+            {
+                const auto it = this->find(CustomKey{ name });
+
+                if (it == this->end()) { throw std::out_of_range("Invalid key"); }
+
+                return it->second;
+            }
+        };
+
+        class ArgHashFunction
+        {
+          public:
+            size_t operator()(const argparse::Arg &arg) const noexcept { return std::hash<std::string>{}(arg.name); }
+        };
+    }// namespace impl
+
+    class Value
+    {
+      public:
+        std::string str;
+
+      public:
+        Value() = default;
+
+        template<typename ReturnType>
+        auto as()
+        {
+            if constexpr (std::is_same<ReturnType, int>::value) {
+                int result{};
+                std::from_chars(this->str.data(), this->str.data() + this->str.size(), result);
+                return result;
+            } else if constexpr (std::is_same<ReturnType, std::string>::value) {
+                return str;
+            } else if constexpr (std::is_same<ReturnType, bool>::value) {
+                // TODO: Error handling here
+                return *utils::str_to_bool(this->str);
+            }
+        }
+    };
+
     class ArgumentParser
     {
       private:
-        using element_type   = std::string;
-        using container_type = std::vector<element_type>;
-        using map_type       = std::unordered_map<element_type, Value>;
+        using container_type = std::vector<std::string>;
+        using value_type     = Value;
+        using map_type       = impl::ArgMap<Arg, Value, impl::ArgHashFunction>;
 
       public:
-        explicit ArgumentParser(const char *argv[]) : argv{ container_type(argv, argv + ArgCount) }
+        ArgumentParser(const int argc, const char **argv) : program_args(argv, argv + argc){};
+
+        [[nodiscard]] container_type args() const noexcept { return this->program_args; }
+
+        void add_argument(
+          const std::string &name,
+          const ArgTypes    &arg_type = ArgTypes::STRING,
+          const bool         required = false)
         {
-            this->program_name = argv[0];
+            const Arg arg_to_insert{ .name = name, .type = arg_type, .required = required };
+            this->add_argument(arg_to_insert);
         }
 
-        [[nodiscard]] auto operator[](const std::string &key) { return this->parsed_args.at(key); }
-
-        [[nodiscard]] auto arg_count() const noexcept { return ArgCount; }
-        [[nodiscard]] auto args() const noexcept { return this->argv; }
-
-        void add_argument(const std::string &argument_name, const ArgumentType &argument_type)
+        void add_argument(const Arg &arg)
         {
-            switch (argument_type) {
-                case ArgumentType::STRING:
-                    this->parsed_args.emplace(argument_name, Value(""));
+            switch (arg.type) {
+                case ArgTypes::STRING: {
+                    this->mapped_args[arg] = Value{ "" };
                     break;
-                case ArgumentType::INT:
-                    this->parsed_args.emplace(argument_name, Value(0));
+                }
+                case ArgTypes::INT: {
+                    this->mapped_args[arg] = Value{ "0" };
                     break;
-                case ArgumentType::BOOL:
-                    this->parsed_args.emplace(argument_name, Value(false));
+                }
+                case ArgTypes::BOOL: {
+                    this->mapped_args[arg] = Value{ "false" };
                     break;
+                }
             }
         }
 
-        [[nodiscard]] auto parse_args() const {}
+        [[nodiscard]] map_type parse_args()
+        {
+            for (const auto &[key, val] : this->mapped_args) {
+                auto elem_in_argv = std::find(this->program_args.begin(), this->program_args.end(), key.name);
 
-      public:
-        element_type program_name;
+                if (elem_in_argv == this->program_args.end() && key.required == true) {
+                    std::cerr << "Arg " << std::quoted(key.name) << " is required\n";
+                    exit(1);
+                }
+
+                if (elem_in_argv != this->program_args.end()) {
+                    if (key.type == ArgTypes::BOOL) {
+                        this->mapped_args[key] = Value{ "true" };
+                        continue;
+                    }
+                    this->mapped_args[key] = Value{ *std::next(elem_in_argv) };
+                } else if (elem_in_argv == this->program_args.end()) {
+                    if (key.type == ArgTypes::BOOL) {
+                        this->mapped_args[key] = Value{ "false" };
+                        continue;
+                    }
+                }
+            }
+            return this->mapped_args;
+        }
 
       private:
-        container_type argv;
-        map_type       parsed_args;
+        container_type program_args;
+        map_type       mapped_args;
     };
-}// namespace argparse
 
+}// namespace argparse
 #endif// ARGPARSE_HPP
