@@ -37,7 +37,6 @@ int main(int argc, const char **argv)
 ### Downloading the header file
 
 - Get the file through wget
-
    ```console
    $ wget https://raw.githubusercontent.com/dead-tech/argparse-cpp/main/include/argparse/argparse.hpp
    ```
@@ -47,14 +46,13 @@ int main(int argc, const char **argv)
 ### Cloning the repo
 
 - Clone the repo
-
    ```console
-    $ git clone https://github.com/dead-tech/argparse-cpp.git
-    cd argparse-cpp
+   $ git clone https://github.com/dead-tech/argparse-cpp.git
+   $ cd argparse-cpp
    ```
 - Move the header file
    ```console
-   mv include/argparse.hpp <your-project-include-path>
+   $ mv include/argparse.hpp <your-project-include-path>
    ```
 - Include the file in your source dode
 
