@@ -34,6 +34,11 @@ int main(int argc, const char **argv)
 
 ## Quickstart
 
+### Download source code from latest release
+
+Click on the releases header on the right side of the GitHub page or navigate [here](https://github.com/dead-tech/argparse-cpp/releases)
+
+Scroll down to the assets section and download the source code (zip or tar.gz)
 ### Downloading the header file
 
 - Get the file through wget
