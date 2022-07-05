@@ -42,28 +42,6 @@ namespace argparse {
         friend bool operator==(const Arg &rhs, const Arg &lhs) { return rhs.name == lhs.name; }
     };
 
-    namespace impl {
-        template<typename CustomKey, typename ValueType, typename HashFunction>
-        class ArgMap : public std::unordered_map<CustomKey, ValueType, HashFunction>
-        {
-          public:
-            ValueType at(const std::string &name) const
-            {
-                const auto it = this->find(CustomKey{ name });
-
-                if (it == this->end()) { throw std::out_of_range("Invalid key"); }
-
-                return it->second;
-            }
-        };
-
-        class ArgHashFunction
-        {
-          public:
-            size_t operator()(const argparse::Arg &arg) const noexcept { return std::hash<std::string>{}(arg.name); }
-        };
-    }// namespace impl
-
     class Value
     {
       public:
@@ -88,12 +66,33 @@ namespace argparse {
         }
     };
 
+    namespace impl {
+        class ArgHashFunction
+        {
+          public:
+            size_t operator()(const argparse::Arg &arg) const noexcept { return std::hash<std::string>{}(arg.name); }
+        };
+
+        class ArgMap : public std::unordered_map<Arg, Value, ArgHashFunction>
+        {
+          public:
+            Value at(const std::string &name) const
+            {
+                const auto it = this->find(Arg{ name });
+
+                if (it == this->end()) { throw std::out_of_range("Invalid key"); }
+
+                return it->second;
+            }
+        };
+    }// namespace impl
+
     class ArgumentParser
     {
       private:
         using container_type = std::vector<std::string>;
         using value_type     = Value;
-        using map_type       = impl::ArgMap<Arg, Value, impl::ArgHashFunction>;
+        using map_type       = impl::ArgMap;
 
       public:
         ArgumentParser(const int argc, const char **argv) : program_args(argv, argv + argc){};
