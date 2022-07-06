@@ -46,8 +46,10 @@ namespace argparse {
 
     enum class ArgFlags : int64_t
     {
-        NONE     = 0LL,
-        REQUIRED = (1LL << 0),
+        NONE        = 0,
+        REQUIRED    = (1LL << 1),
+        STORE_TRUE  = (1LL << 2),
+        STORE_FALSE = (1LL << 3),
     };
 
     struct Arg
@@ -178,13 +180,15 @@ namespace argparse {
 
                 if (arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
-                        this->mapped_args[arg] = Value{ "true" };
+                        this->mapped_args[arg] =
+                          arg.has_flag(ArgFlags::STORE_FALSE) ? Value{ "false" } : Value{ "true" };
                         continue;
                     }
                     this->mapped_args[arg] = Value{ *std::next(it) };
                 } else if (!arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
-                        this->mapped_args[arg] = Value{ "false" };
+                        this->mapped_args[arg] =
+                          arg.has_flag(ArgFlags::STORE_FALSE) ? Value{ "true" } : Value{ "false" };
                         continue;
                     }
                 }
