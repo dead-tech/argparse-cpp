@@ -140,20 +140,19 @@ namespace argparse {
 
         void add_argument(const Arg &arg)
         {
-            switch (arg.type) {
-                case ArgTypes::STRING: {
-                    this->mapped_args[arg] = Value{ "" };
-                    break;
+            const Value to_insert = [&]() {
+                if (arg.type == ArgTypes::STRING) {
+                    return Value{ "" };
+                } else if (arg.type == ArgTypes::INT) {
+                    return Value{ "0" };
+                } else if (arg.type == ArgTypes::BOOL) {
+                    return Value{ "false" };
                 }
-                case ArgTypes::INT: {
-                    this->mapped_args[arg] = Value{ "0" };
-                    break;
-                }
-                case ArgTypes::BOOL: {
-                    this->mapped_args[arg] = Value{ "false" };
-                    break;
-                }
-            }
+
+                assert(false && "unreachable");
+            }();
+
+            this->mapped_args[arg] = to_insert;
 
             this->create_usage_message();
             this->create_help_message();
