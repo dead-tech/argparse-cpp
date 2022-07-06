@@ -37,18 +37,37 @@ namespace argparse {
         }
     }// namespace utils
 
-    enum class ArgTypes { STRING = 0, INT, BOOL };
+    enum class ArgTypes
+    {
+        STRING = 0,
+        INT,
+        BOOL
+    };
+
+    enum class ArgFlags : int64_t
+    {
+        NONE     = 0LL,
+        REQUIRED = (1LL << 0),
+    };
 
     struct Arg
     {
+      private:
+        using flag_underlying_type = std::underlying_type<ArgFlags>::type;
+
       public:
         std::string name;
         ArgTypes    type;
-        bool        required;
+        ArgFlags    flags;
         std::string help_message;
 
       public:
         friend bool operator==(const Arg &rhs, const Arg &lhs) { return rhs.name == lhs.name; }
+
+        [[nodiscard]] bool has_flag(const ArgFlags &flag) const
+        {
+            return (static_cast<flag_underlying_type>(this->flags) & static_cast<flag_underlying_type>(flag));
+        }
     };
 
     class Value
@@ -112,12 +131,10 @@ namespace argparse {
         void add_argument(
           const std::string &name,
           const ArgTypes    &arg_type     = ArgTypes::STRING,
-          const bool         required     = false,
+          const ArgFlags    &flags        = ArgFlags::NONE,
           const std::string &help_message = "")
         {
-            const Arg arg_to_insert{
-                .name = name, .type = arg_type, .required = required, .help_message = help_message
-            };
+            const Arg arg_to_insert{ .name = name, .type = arg_type, .flags = flags, .help_message = help_message };
             this->add_argument(arg_to_insert);
         }
 
@@ -155,7 +172,7 @@ namespace argparse {
                 const auto it        = std::find(this->program_args.begin(), this->program_args.end(), arg.name);
                 const auto arg_found = it != this->program_args.end();
 
-                if (!arg_found && arg.required) {
+                if (!arg_found && arg.has_flag(ArgFlags::REQUIRED)) {
                     this->error_required_arg(arg);
                     return {};
                 }
@@ -214,7 +231,7 @@ namespace argparse {
         {
             this->usage_message = "usage: " + this->program_name + " [--help] ";
             for (const auto &[key, val] : this->mapped_args) {
-                *this->usage_message += (key.required ? key.name : format_as_optional(key.name));
+                *this->usage_message += (key.has_flag(ArgFlags::REQUIRED) ? key.name : format_as_optional(key.name));
                 *this->usage_message += ' ';
             }
 
@@ -233,14 +250,14 @@ namespace argparse {
             for (const auto &[key, value] : this->mapped_args) {
                 const std::string message = "  " + this->format_as_optional(key.name) + ' ' + utils::to_upper(key.name)
                                             + ' ' + key.help_message + '\n';
-                if (!key.required) { ss << message; }
+                if (!key.has_flag(ArgFlags::REQUIRED)) { ss << message; }
             }
 
             ss << "\n\n";
             ss << "required arguments:\n";
 
             for (const auto &[key, value] : this->mapped_args) {
-                if (key.required) {
+                if (key.has_flag(ArgFlags::REQUIRED)) {
                     const std::string message =
                       "  " + key.name + ' ' + utils::to_upper(key.name) + ' ' + key.help_message + '\n';
                     ss << message;

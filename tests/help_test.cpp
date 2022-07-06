@@ -8,7 +8,8 @@ TEST_CASE("Help message test", "[argparse]")
     const char *argv[] = { "program_name", "--help" };
     auto        parser = argparse::ArgumentParser(argc, argv);
 
-    parser.add_argument("--build-dir", argparse::ArgTypes::STRING, true, "path to build directory");
+    parser.add_argument(
+      "--build-dir", argparse::ArgTypes::STRING, argparse::ArgFlags::REQUIRED, "path to build directory");
     parser.add_argument("--repeat", argparse::ArgTypes::BOOL);
 
     const auto args = parser.parse_args();
@@ -22,7 +23,8 @@ TEST_CASE("Usage message test", "[argparse]")
     const char *argv[] = { "program_name", "--help" };
     auto        parser = argparse::ArgumentParser(argc, argv);
 
-    parser.add_argument("--build-dir", argparse::ArgTypes::STRING, true, "path to build directory");
+    parser.add_argument(
+      "--build-dir", argparse::ArgTypes::STRING, argparse::ArgFlags::REQUIRED, "path to build directory");
     parser.add_argument("--repeat", argparse::ArgTypes::BOOL);
 
     const auto args = parser.parse_args();
