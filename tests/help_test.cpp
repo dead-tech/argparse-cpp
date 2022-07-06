@@ -8,9 +8,12 @@ TEST_CASE("Help message test", "[argparse]")
     const char *argv[] = { "program_name", "--help" };
     auto        parser = argparse::ArgumentParser(argc, argv);
 
-    parser.add_argument(
-      "--build-dir", argparse::ArgTypes::STRING, argparse::ArgFlags::REQUIRED, "path to build directory");
-    parser.add_argument("--repeat", argparse::ArgTypes::BOOL);
+    parser.add_argument("--build-dir")
+      .set_type(argparse::ArgTypes::STRING)
+      .set_flags(argparse::ArgFlags::REQUIRED)
+      .set_help("path to build directory");
+
+    parser.add_argument("--repeat").set_type(argparse::ArgTypes::BOOL);
 
     const auto args = parser.parse_args();
 
@@ -23,9 +26,12 @@ TEST_CASE("Usage message test", "[argparse]")
     const char *argv[] = { "program_name", "--help" };
     auto        parser = argparse::ArgumentParser(argc, argv);
 
-    parser.add_argument(
-      "--build-dir", argparse::ArgTypes::STRING, argparse::ArgFlags::REQUIRED, "path to build directory");
-    parser.add_argument("--repeat", argparse::ArgTypes::BOOL);
+    parser.add_argument("--build-dir")
+      .set_type(argparse::ArgTypes::STRING)
+      .set_flags(argparse::ArgFlags::REQUIRED)
+      .set_help("path to build directory");
+
+    parser.add_argument("--repeat").set_type(argparse::ArgTypes::BOOL);
 
     const auto args = parser.parse_args();
 

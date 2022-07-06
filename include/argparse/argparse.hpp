@@ -50,6 +50,8 @@ namespace argparse {
         REQUIRED    = (1LL << 1),
         STORE_TRUE  = (1LL << 2),
         STORE_FALSE = (1LL << 3),
+
+        DEFAULT = STORE_TRUE,
     };
 
     struct Arg
@@ -69,6 +71,24 @@ namespace argparse {
         [[nodiscard]] bool has_flag(const ArgFlags &flag) const
         {
             return (static_cast<flag_underlying_type>(this->flags) & static_cast<flag_underlying_type>(flag));
+        }
+
+        Arg &set_type(const ArgTypes &type)
+        {
+            this->type = type;
+            return *this;
+        }
+
+        Arg &set_flags(const ArgFlags &flags)
+        {
+            this->flags = flags;
+            return *this;
+        }
+
+        Arg &set_help(const std::string &help_message)
+        {
+            this->help_message = help_message;
+            return *this;
         }
     };
 
@@ -90,9 +110,10 @@ namespace argparse {
             } else if constexpr (std::is_same<ReturnType, std::string>::value) {
                 return str;
             } else if constexpr (std::is_same<ReturnType, bool>::value) {
-                // TODO: Error handling here
                 return *utils::str_to_bool(this->str);
             }
+
+            assert(false && "unreachable");
         }
     };
 
@@ -130,38 +151,19 @@ namespace argparse {
 
         [[nodiscard]] container_type args() const noexcept { return this->program_args; }
 
-        void add_argument(
-          const std::string &name,
-          const ArgTypes    &arg_type     = ArgTypes::STRING,
-          const ArgFlags    &flags        = ArgFlags::NONE,
-          const std::string &help_message = "")
+        Arg &add_argument(const std::string &name)
         {
-            const Arg arg_to_insert{ .name = name, .type = arg_type, .flags = flags, .help_message = help_message };
-            this->add_argument(arg_to_insert);
-        }
+            Arg arg_to_insert{ .name = name, .type = ArgTypes::STRING, .flags = ArgFlags::DEFAULT, .help_message = "" };
 
-        void add_argument(const Arg &arg)
-        {
-            const Value to_insert = [&]() {
-                if (arg.type == ArgTypes::STRING) {
-                    return Value{ "" };
-                } else if (arg.type == ArgTypes::INT) {
-                    return Value{ "0" };
-                } else if (arg.type == ArgTypes::BOOL) {
-                    return Value{ "false" };
-                }
-
-                assert(false && "unreachable");
-            }();
-
-            this->mapped_args[arg] = to_insert;
-
-            this->create_usage_message();
-            this->create_help_message();
+            auto [it, success] = this->mapped_args.emplace(arg_to_insert, Value{ "" });
+            return const_cast<Arg &>(it->first);
         }
 
         [[nodiscard]] map_type parse_args()
         {
+            this->create_usage_message();
+            this->create_help_message();
+
             // Check if help flag is specified
             const auto help_flag = std::find(this->program_args.begin(), this->program_args.end(), "--help");
             if (help_flag != this->program_args.end()) {

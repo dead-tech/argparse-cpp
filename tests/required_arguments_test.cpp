@@ -9,7 +9,7 @@ TEST_CASE("Required arguments test", "[argparse]")
     const char *argv[] = { "program_name", "--fail" };
     auto        parser = argparse::ArgumentParser(argc, argv);
 
-    parser.add_argument("--fail", argparse::ArgTypes::BOOL, argparse::ArgFlags::REQUIRED);
+    parser.add_argument("--fail").set_type(argparse::ArgTypes::BOOL).set_flags(argparse::ArgFlags::REQUIRED);
 
     const auto args = parser.parse_args();
 

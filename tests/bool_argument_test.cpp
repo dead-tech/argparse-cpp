@@ -7,7 +7,7 @@ TEST_CASE("Bool type arguments test (store true)", "[argparse]")
     const char *argv[] = { "program_name", "--quiet" };
     auto        parser = argparse::ArgumentParser(argc, argv);
 
-    parser.add_argument("--quiet", argparse::ArgTypes::BOOL, argparse::ArgFlags::STORE_TRUE, "quiet mode");
+    const auto arg = parser.add_argument("--quiet").set_type(argparse::ArgTypes::BOOL).set_help("quiet mode");
 
     const auto args = parser.parse_args();
 
@@ -20,7 +20,10 @@ TEST_CASE("Bool type arguments test (store false)", "[argparse]")
     const char *argv[] = { "program_name", "--run" };
     auto        parser = argparse::ArgumentParser(argc, argv);
 
-    parser.add_argument("--run", argparse::ArgTypes::BOOL, argparse::ArgFlags::STORE_FALSE, "run the program");
+    const auto arg = parser.add_argument("--run")
+                       .set_type(argparse::ArgTypes::BOOL)
+                       .set_flags(argparse::ArgFlags::STORE_FALSE)
+                       .set_help("run the program");
 
     const auto args = parser.parse_args();
 

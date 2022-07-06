@@ -11,8 +11,8 @@ TEST_CASE("Parse arguments test", "[argparse]")
     auto parser = argparse::ArgumentParser(argc, argv);
 
     parser.add_argument("--build-dir");
-    parser.add_argument("--count", argparse::ArgTypes::INT);
-    parser.add_argument("--repeat", argparse::ArgTypes::BOOL);
+    parser.add_argument("--count").set_type(argparse::ArgTypes::INT);
+    parser.add_argument("--repeat").set_type(argparse::ArgTypes::BOOL);
 
 
     const auto args = parser.parse_args();
