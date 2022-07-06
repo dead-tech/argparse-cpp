@@ -17,16 +17,7 @@
 namespace argparse {
 
     namespace utils {
-        static std::optional<bool> str_to_bool(const std::string &str)
-        {
-            if (str == "false") {
-                return false;
-            } else if (str == "true") {
-                return true;
-            }
-
-            return std::nullopt;
-        }
+        static bool str_to_bool(const std::string &str) { return str == "true" ? true : false; }
 
         static std::string to_upper(const std::string &str)
         {
@@ -110,7 +101,7 @@ namespace argparse {
             } else if constexpr (std::is_same<ReturnType, std::string>::value) {
                 return str;
             } else if constexpr (std::is_same<ReturnType, bool>::value) {
-                return *utils::str_to_bool(this->str);
+                return utils::str_to_bool(this->str);
             }
 
             assert(false && "unreachable");
