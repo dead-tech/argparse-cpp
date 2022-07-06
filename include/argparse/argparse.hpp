@@ -27,6 +27,14 @@ namespace argparse {
 
             return std::nullopt;
         }
+
+        static std::string to_upper(const std::string &str)
+        {
+            std::string result;
+            result.reserve(str.size());
+            std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c) { return std::toupper(c); });
+            return result;
+        }
     }// namespace utils
 
     enum class ArgTypes { STRING = 0, INT, BOOL };
@@ -37,6 +45,7 @@ namespace argparse {
         std::string name;
         ArgTypes    type;
         bool        required;
+        std::string help_message;
 
       public:
         friend bool operator==(const Arg &rhs, const Arg &lhs) { return rhs.name == lhs.name; }
@@ -95,16 +104,20 @@ namespace argparse {
         using map_type       = impl::ArgMap;
 
       public:
-        ArgumentParser(const int argc, const char **argv) : program_args(argv, argv + argc){};
+        ArgumentParser(const int argc, const char **argv)
+          : program_args(argv, argv + argc), program_name{ program_args.at(0) } {};
 
         [[nodiscard]] container_type args() const noexcept { return this->program_args; }
 
         void add_argument(
           const std::string &name,
-          const ArgTypes    &arg_type = ArgTypes::STRING,
-          const bool         required = false)
+          const ArgTypes    &arg_type     = ArgTypes::STRING,
+          const bool         required     = false,
+          const std::string &help_message = "")
         {
-            const Arg arg_to_insert{ .name = name, .type = arg_type, .required = required };
+            const Arg arg_to_insert{
+                .name = name, .type = arg_type, .required = required, .help_message = help_message
+            };
             this->add_argument(arg_to_insert);
         }
 
@@ -124,37 +137,126 @@ namespace argparse {
                     break;
                 }
             }
+
+            this->create_usage_message();
+            this->create_help_message();
         }
 
         [[nodiscard]] map_type parse_args()
         {
-            for (const auto &[key, val] : this->mapped_args) {
-                auto elem_in_argv = std::find(this->program_args.begin(), this->program_args.end(), key.name);
+            // Check if help flag is specified
+            const auto help_flag = std::find(this->program_args.begin(), this->program_args.end(), "--help");
+            if (help_flag != this->program_args.end()) {
+                this->print_help();
+                return {};
+            }
 
-                if (elem_in_argv == this->program_args.end() && key.required == true) {
-                    std::cerr << "Arg " << std::quoted(key.name) << " is required\n";
-                    exit(1);
+            for (const auto &[arg, val] : this->mapped_args) {
+                const auto it        = std::find(this->program_args.begin(), this->program_args.end(), arg.name);
+                const auto arg_found = it != this->program_args.end();
+
+                if (!arg_found && arg.required) {
+                    this->error_required_arg(arg);
+                    return {};
                 }
 
-                if (elem_in_argv != this->program_args.end()) {
-                    if (key.type == ArgTypes::BOOL) {
-                        this->mapped_args[key] = Value{ "true" };
+                if (arg_found) {
+                    if (arg.type == ArgTypes::BOOL) {
+                        this->mapped_args[arg] = Value{ "true" };
                         continue;
                     }
-                    this->mapped_args[key] = Value{ *std::next(elem_in_argv) };
-                } else if (elem_in_argv == this->program_args.end()) {
-                    if (key.type == ArgTypes::BOOL) {
-                        this->mapped_args[key] = Value{ "false" };
+                    this->mapped_args[arg] = Value{ *std::next(it) };
+                } else if (!arg_found) {
+                    if (arg.type == ArgTypes::BOOL) {
+                        this->mapped_args[arg] = Value{ "false" };
                         continue;
                     }
                 }
             }
+
             return this->mapped_args;
         }
 
+        void print_help()
+        {
+            if (!this->help_message.has_value()) { this->create_help_message(); }
+            std::cout << this->help_message.value() << '\n';
+        }
+
+        void print_usage()
+        {
+            if (!this->usage_message.has_value()) { this->create_usage_message(); }
+            std::cout << this->usage_message.value() << '\n';
+        }
+
+        const std::string &get_help_message()
+        {
+            if (!this->help_message.has_value()) { this->create_help_message(); }
+            return this->help_message.value();
+        }
+
+        const std::string &get_usage_message()
+        {
+            if (!this->usage_message.has_value()) { this->create_usage_message(); }
+            return this->usage_message.value();
+        }
+
       private:
-        container_type program_args;
-        map_type       mapped_args;
+        std::string format_as_optional(const std::string &key_name) { return "[" + key_name + "]"; }
+
+        void error_required_arg(const Arg &arg)
+        {
+            std::cerr << "[argparse] error: arg " << std::quoted(arg.name) << " is required\n";
+            this->print_usage();
+        }
+
+        void create_usage_message()
+        {
+            this->usage_message = "usage: " + this->program_name + " [--help] ";
+            for (const auto &[key, val] : this->mapped_args) {
+                *this->usage_message += (key.required ? key.name : format_as_optional(key.name));
+                *this->usage_message += ' ';
+            }
+
+            this->usage_message.value().append("\n\n");
+        }
+
+        void create_help_message()
+        {
+            std::stringstream ss;
+
+            ss << this->usage_message.value();
+
+            ss << "optional arguments:\n";
+            ss << "  --help\t\tshow this help message and exit\n";
+
+            for (const auto &[key, value] : this->mapped_args) {
+                const std::string message = "  " + this->format_as_optional(key.name) + ' ' + utils::to_upper(key.name)
+                                            + ' ' + key.help_message + '\n';
+                if (!key.required) { ss << message; }
+            }
+
+            ss << "\n\n";
+            ss << "required arguments:\n";
+
+            for (const auto &[key, value] : this->mapped_args) {
+                if (key.required) {
+                    const std::string message =
+                      "  " + key.name + ' ' + utils::to_upper(key.name) + ' ' + key.help_message + '\n';
+                    ss << message;
+                }
+            }
+
+            this->help_message = ss.str();
+        }
+
+
+      private:
+        container_type             program_args;
+        std::string                program_name;
+        map_type                   mapped_args;
+        std::optional<std::string> usage_message;
+        std::optional<std::string> help_message;
     };
 
 }// namespace argparse
