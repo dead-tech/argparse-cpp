@@ -55,9 +55,29 @@ namespace argparse {
         ArgTypes    type;
         ArgFlags    flags;
         std::string help_message;
+        std::string value;
+
+      public:
+        Arg() = default;
 
       public:
         friend bool operator==(const Arg &rhs, const Arg &lhs) { return rhs.name == lhs.name; }
+
+        template<typename ReturnType>
+        [[nodiscard]] auto as() const
+        {
+            if constexpr (std::is_same<ReturnType, int>::value) {
+                int result{};
+                std::from_chars(this->value.data(), this->value.data() + this->value.size(), result);
+                return result;
+            } else if constexpr (std::is_same<ReturnType, std::string>::value) {
+                return value;
+            } else if constexpr (std::is_same<ReturnType, bool>::value) {
+                return utils::str_to_bool(this->value);
+            }
+
+            assert(false && "unreachable");
+        }
 
         [[nodiscard]] bool has_flag(const ArgFlags &flag) const
         {
@@ -83,71 +103,31 @@ namespace argparse {
         }
     };
 
-    class Value
-    {
-      public:
-        std::string str;
-
-      public:
-        Value() = default;
-
-        template<typename ReturnType>
-        auto as()
-        {
-            if constexpr (std::is_same<ReturnType, int>::value) {
-                int result{};
-                std::from_chars(this->str.data(), this->str.data() + this->str.size(), result);
-                return result;
-            } else if constexpr (std::is_same<ReturnType, std::string>::value) {
-                return str;
-            } else if constexpr (std::is_same<ReturnType, bool>::value) {
-                return utils::str_to_bool(this->str);
-            }
-
-            assert(false && "unreachable");
-        }
-    };
-
-    namespace impl {
-        class ArgHashFunction
-        {
-          public:
-            size_t operator()(const argparse::Arg &arg) const noexcept { return std::hash<std::string>{}(arg.name); }
-        };
-
-        class ArgMap : public std::unordered_map<Arg, Value, ArgHashFunction>
-        {
-          public:
-            Value at(const std::string &name) const
-            {
-                const auto it = this->find(Arg{ name });
-
-                if (it == this->end()) { throw std::out_of_range("Invalid key"); }
-
-                return it->second;
-            }
-        };
-    }// namespace impl
-
     class ArgumentParser
     {
       private:
         using container_type = std::vector<std::string>;
-        using value_type     = Value;
-        using map_type       = impl::ArgMap;
+        using map_type       = std::unordered_map<std::string, Arg>;
+        using key_type       = map_type::key_type;
+        using mapped_type    = map_type::mapped_type;
 
       public:
+        // TODO: Remove argc use argv.size()
         ArgumentParser(const int argc, const char **argv)
           : program_args(argv, argv + argc), program_name{ program_args.at(0) } {};
 
         [[nodiscard]] container_type args() const noexcept { return this->program_args; }
 
-        Arg &add_argument(const std::string &name)
+        mapped_type &add_argument(const key_type &arg_name)
         {
-            Arg arg_to_insert{ .name = name, .type = ArgTypes::STRING, .flags = ArgFlags::DEFAULT, .help_message = "" };
-
-            auto [it, success] = this->mapped_args.emplace(arg_to_insert, Value{ "" });
-            return const_cast<Arg &>(it->first);
+            // TODO: check if another key with that name already existed
+            const Arg to_insert      = { .name         = arg_name,
+                                         .type         = ArgTypes::STRING,
+                                         .flags        = ArgFlags::DEFAULT,
+                                         .help_message = "",
+                                         .value        = "" };
+            const auto [it, success] = this->mapped_args.emplace(arg_name, to_insert);
+            return it->second;
         }
 
         [[nodiscard]] map_type parse_args()
@@ -162,26 +142,27 @@ namespace argparse {
                 return {};
             }
 
-            for (const auto &[arg, val] : this->mapped_args) {
-                const auto it        = std::find(this->program_args.begin(), this->program_args.end(), arg.name);
+            for (auto &[arg_name, arg] : this->mapped_args) {
+                const auto it        = std::find(this->program_args.begin(), this->program_args.end(), arg_name);
                 const auto arg_found = it != this->program_args.end();
 
                 if (!arg_found && arg.has_flag(ArgFlags::REQUIRED)) {
-                    this->error_required_arg(arg);
+                    this->error_required_arg(arg_name);
                     return {};
                 }
 
                 if (arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
-                        this->mapped_args[arg] =
-                          arg.has_flag(ArgFlags::STORE_FALSE) ? Value{ "false" } : Value{ "true" };
+                        arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "false" : arg.value = "true";
+                        this->mapped_args[arg_name] = arg;
                         continue;
                     }
-                    this->mapped_args[arg] = Value{ *std::next(it) };
+                    arg.value                   = *std::next(it);
+                    this->mapped_args[arg_name] = arg;
                 } else if (!arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
-                        this->mapped_args[arg] =
-                          arg.has_flag(ArgFlags::STORE_FALSE) ? Value{ "true" } : Value{ "false" };
+                        arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "true" : arg.value = "false";
+                        this->mapped_args[arg_name] = arg;
                         continue;
                     }
                 }
@@ -215,19 +196,19 @@ namespace argparse {
         }
 
       private:
-        std::string format_as_optional(const std::string &key_name) { return "[" + key_name + "]"; }
+        std::string format_as_optional(const std::string &arg_name) { return "[" + arg_name + "]"; }
 
-        void error_required_arg(const Arg &arg)
+        void error_required_arg(const std::string &arg_name)
         {
-            std::cerr << "[argparse] error: arg " << std::quoted(arg.name) << " is required\n";
+            std::cerr << "[argparse] error: arg " << std::quoted(arg_name) << " is required\n";
             this->print_usage();
         }
 
         void create_usage_message()
         {
             this->usage_message = "usage: " + this->program_name + " [--help] ";
-            for (const auto &[key, val] : this->mapped_args) {
-                *this->usage_message += (key.has_flag(ArgFlags::REQUIRED) ? key.name : format_as_optional(key.name));
+            for (const auto &[arg_name, arg] : this->mapped_args) {
+                *this->usage_message += (arg.has_flag(ArgFlags::REQUIRED) ? arg_name : format_as_optional(arg_name));
                 *this->usage_message += ' ';
             }
 
@@ -243,19 +224,19 @@ namespace argparse {
             ss << "optional arguments:\n";
             ss << "  --help\t\tshow this help message and exit\n";
 
-            for (const auto &[key, value] : this->mapped_args) {
-                const std::string message = "  " + this->format_as_optional(key.name) + ' ' + utils::to_upper(key.name)
-                                            + ' ' + key.help_message + '\n';
-                if (!key.has_flag(ArgFlags::REQUIRED)) { ss << message; }
+            for (const auto &[arg_name, arg] : this->mapped_args) {
+                const std::string message = "  " + this->format_as_optional(arg_name) + ' ' + utils::to_upper(arg_name)
+                                            + ' ' + arg.help_message + '\n';
+                if (!arg.has_flag(ArgFlags::REQUIRED)) { ss << message; }
             }
 
             ss << "\n\n";
             ss << "required arguments:\n";
 
-            for (const auto &[key, value] : this->mapped_args) {
-                if (key.has_flag(ArgFlags::REQUIRED)) {
+            for (const auto &[arg_name, arg] : this->mapped_args) {
+                if (arg.has_flag(ArgFlags::REQUIRED)) {
                     const std::string message =
-                      "  " + key.name + ' ' + utils::to_upper(key.name) + ' ' + key.help_message + '\n';
+                      "  " + arg_name + ' ' + utils::to_upper(arg_name) + ' ' + arg.help_message + '\n';
                     ss << message;
                 }
             }
