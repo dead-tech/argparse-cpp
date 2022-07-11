@@ -70,7 +70,10 @@ namespace argparse {
         {
             if constexpr (std::is_same<ReturnType, int>::value) {
                 int result{};
-                std::from_chars(this->value.data(), this->value.data() + this->value.size(), result);
+                std::from_chars(
+                  this->value.data(),
+                  this->value.data() + this->value.size(),
+                  result);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                 return result;
             } else if constexpr (std::is_same<ReturnType, std::string>::value) {
                 return value;
@@ -115,7 +118,8 @@ namespace argparse {
 
       public:
         ArgumentParser(const int argc, const char **argv)
-          : program_args(argv, argv + argc), program_name{ program_args.at(0) } {};
+          : program_args(argv, argv + argc), program_name{ program_args.at(
+                                               0) } {};// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
         [[nodiscard]] container_type args() const noexcept { return this->program_args; }
 
