@@ -29,7 +29,7 @@ namespace argparse {
             std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c) { return std::toupper(c); });
             return result;
         }
-    }// namespace utils
+    } // namespace utils
 
     enum class ArgTypes
     {
@@ -84,7 +84,7 @@ namespace argparse {
                 int result{};
                 std::from_chars(
                   this->value.data(),
-                  this->value.data() + this->value.size(),// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                  this->value.data() + this->value.size(), // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
                   result);
                 return result;
             } else if constexpr (std::is_same<ReturnType, std::string>::value) {
@@ -149,9 +149,7 @@ namespace argparse {
               sizeof...(Names) > 0,
               "[argparse] error: add_argument() needs at least one argument as a name (starting with '--')");
 
-            const std::vector<std::string> data{
-                names...
-            };// NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+            const std::vector<std::string> data{ names... }; // NOLINT
 
             const auto primary_name =
               std::find_if(data.begin(), data.end(), [](const auto elem) { return elem.starts_with("--"); });
@@ -289,5 +287,5 @@ namespace argparse {
         std::string    help_message;
     };
 
-}// namespace argparse
-#endif// ARGPARSE_HPP
+} // namespace argparse
+#endif // ARGPARSE_HPP
