@@ -2,7 +2,7 @@
 #define ARGPARSE_HPP
 
 #include <algorithm>
-#include <assert.h>
+#include <cassert>
 #include <charconv>
 #include <iomanip>
 #include <iostream>
@@ -50,15 +50,17 @@ namespace argparse {
       private:
         using flag_underlying_type = std::underlying_type<ArgFlags>::type;
 
+        // TODO: Fix visibility
       public:
         std::string name;
-        ArgTypes    type;
-        ArgFlags    flags;
+        ArgTypes    type  = ArgTypes::STRING;
+        ArgFlags    flags = ArgFlags::DEFAULT;
         std::string help_message;
         std::string value;
 
       public:
         Arg() = default;
+        explicit Arg(std::string name) : name{ std::move(name) } {};
 
       public:
         friend bool operator==(const Arg &rhs, const Arg &lhs) { return rhs.name == lhs.name; }
@@ -112,7 +114,6 @@ namespace argparse {
         using mapped_type    = map_type::mapped_type;
 
       public:
-        // TODO: Remove argc use argv.size()
         ArgumentParser(const int argc, const char **argv)
           : program_args(argv, argv + argc), program_name{ program_args.at(0) } {};
 
@@ -120,13 +121,12 @@ namespace argparse {
 
         mapped_type &add_argument(const key_type &arg_name)
         {
-            // TODO: check if another key with that name already existed
-            const Arg to_insert      = { .name         = arg_name,
-                                         .type         = ArgTypes::STRING,
-                                         .flags        = ArgFlags::DEFAULT,
-                                         .help_message = "",
-                                         .value        = "" };
-            const auto [it, success] = this->mapped_args.emplace(arg_name, to_insert);
+            // check if another key with that name already existed
+            assert(
+              this->mapped_args.find(arg_name) == this->mapped_args.end()
+              && "[argparse] error: duplicate flag name!\n");
+
+            const auto [it, success] = this->mapped_args.emplace(arg_name, Arg{ arg_name });
             return it->second;
         }
 
