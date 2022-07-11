@@ -72,8 +72,8 @@ namespace argparse {
                 int result{};
                 std::from_chars(
                   this->value.data(),
-                  this->value.data() + this->value.size(),
-                  result);// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                  this->value.data() + this->value.size(),// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+                  result);
                 return result;
             } else if constexpr (std::is_same<ReturnType, std::string>::value) {
                 return value;
@@ -117,9 +117,10 @@ namespace argparse {
         using mapped_type    = map_type::mapped_type;
 
       public:
+        // clang-format off
         ArgumentParser(const int argc, const char **argv)
-          : program_args(argv, argv + argc), program_name{ program_args.at(
-                                               0) } {};// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+          : program_args(argv, argv + argc), program_name{ program_args.at(0) } {};// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        // clang-format on
 
         [[nodiscard]] container_type args() const noexcept { return this->program_args; }
 
