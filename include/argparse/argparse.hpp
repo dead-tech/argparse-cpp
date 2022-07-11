@@ -176,34 +176,18 @@ namespace argparse {
             return this->mapped_args;
         }
 
-        void print_help()
-        {
-            if (!this->help_message.has_value()) { this->create_help_message(); }
-            std::cout << this->help_message.value() << '\n';
-        }
+        void print_help() const { std::cout << this->help_message << '\n'; }
 
-        void print_usage()
-        {
-            if (!this->usage_message.has_value()) { this->create_usage_message(); }
-            std::cout << this->usage_message.value() << '\n';
-        }
+        void print_usage() const { std::cout << this->usage_message << '\n'; }
 
-        const std::string &get_help_message()
-        {
-            if (!this->help_message.has_value()) { this->create_help_message(); }
-            return this->help_message.value();
-        }
+        [[nodiscard]] const std::string &get_help_message() const { return this->help_message; }
 
-        const std::string &get_usage_message()
-        {
-            if (!this->usage_message.has_value()) { this->create_usage_message(); }
-            return this->usage_message.value();
-        }
+        [[nodiscard]] const std::string &get_usage_message() const { return this->usage_message; }
 
       private:
-        std::string format_as_optional(const std::string &arg_name) { return "[" + arg_name + "]"; }
+        [[nodiscard]] std::string format_as_optional(const std::string &arg_name) { return "[" + arg_name + "]"; }
 
-        void error_required_arg(const std::string &arg_name)
+        void error_required_arg(const std::string &arg_name) const
         {
             std::cerr << "[argparse] error: arg " << std::quoted(arg_name) << " is required\n";
             this->print_usage();
@@ -213,18 +197,18 @@ namespace argparse {
         {
             this->usage_message = "usage: " + this->program_name + " [--help] ";
             for (const auto &[arg_name, arg] : this->mapped_args) {
-                *this->usage_message += (arg.has_flag(ArgFlags::REQUIRED) ? arg_name : format_as_optional(arg_name));
-                *this->usage_message += ' ';
+                this->usage_message += (arg.has_flag(ArgFlags::REQUIRED) ? arg_name : format_as_optional(arg_name));
+                this->usage_message += ' ';
             }
 
-            this->usage_message.value().append("\n\n");
+            this->usage_message.append("\n\n");
         }
 
         void create_help_message()
         {
             std::stringstream ss;
 
-            ss << this->usage_message.value();
+            ss << this->usage_message;
 
             ss << "optional arguments:\n";
             ss << "  --help\t\tshow this help message and exit\n";
@@ -251,11 +235,11 @@ namespace argparse {
 
 
       private:
-        container_type             program_args;
-        std::string                program_name;
-        map_type                   mapped_args;
-        std::optional<std::string> usage_message;
-        std::optional<std::string> help_message;
+        container_type program_args;
+        std::string    program_name;
+        map_type       mapped_args;
+        std::string    usage_message;
+        std::string    help_message;
     };
 
 }// namespace argparse
