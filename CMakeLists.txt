@@ -2,9 +2,10 @@ cmake_minimum_required(VERSION 3.18.4)
 project(argparse-cpp)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 20)
 
 set(COMPILER_WARNINGS
-        -std=c++17
+        -std=c++20
         -Wall
         -Wextra
         -Werror
@@ -35,5 +36,5 @@ if (ENABLE_TESTING)
 
     add_executable(argparse-cpp_tests ${TESTS_SOURCES})
     target_link_libraries(argparse-cpp_tests PRIVATE catch_main ${PROJECT_NAME})
-    target_link_options(argparse-cpp_tests PRIVATE -std=c++17)
+    target_link_options(argparse-cpp_tests PRIVATE -std=c++20)
 endif ()
