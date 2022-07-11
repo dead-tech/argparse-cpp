@@ -16,6 +16,9 @@
 
 namespace argparse {
 
+    template<typename T>
+    concept StringLike = std::is_convertible_v<T, std::string> || std::is_convertible_v<T, const char *>;
+
     namespace utils {
         static bool str_to_bool(const std::string &str) { return str == "true" ? true : false; }
 
@@ -45,14 +48,19 @@ namespace argparse {
         DEFAULT = STORE_TRUE,
     };
 
+    struct ArgNames
+    {
+        std::vector<std::string> aliases;
+        std::string              primary_name;
+    };
+
     struct Arg
     {
       private:
         using flag_underlying_type = std::underlying_type<ArgFlags>::type;
 
-        // TODO: Fix visibility
       public:
-        std::string name;
+        ArgNames    names;
         ArgTypes    type  = ArgTypes::STRING;
         ArgFlags    flags = ArgFlags::DEFAULT;
         std::string help_message;
@@ -60,10 +68,14 @@ namespace argparse {
 
       public:
         Arg() = default;
-        explicit Arg(std::string name) : name{ std::move(name) } {};
+
+        explicit Arg(ArgNames names) : names{ std::move(names) } {};
 
       public:
-        friend bool operator==(const Arg &rhs, const Arg &lhs) { return rhs.name == lhs.name; }
+        friend bool operator==(const Arg &rhs, const Arg &lhs)
+        {
+            return rhs.names.primary_name == lhs.names.primary_name;
+        }
 
         template<typename ReturnType>
         [[nodiscard]] auto as() const
@@ -87,6 +99,12 @@ namespace argparse {
         [[nodiscard]] bool has_flag(const ArgFlags &flag) const
         {
             return (static_cast<flag_underlying_type>(this->flags) & static_cast<flag_underlying_type>(flag));
+        }
+
+        [[nodiscard]] bool has_name(const std::string &name) const
+        {
+            return std::any_of(
+              this->names.aliases.begin(), this->names.aliases.end(), [&](const auto elem) { return elem == name; });
         }
 
         Arg &set_type(const ArgTypes &type)
@@ -124,14 +142,40 @@ namespace argparse {
 
         [[nodiscard]] container_type args() const noexcept { return this->program_args; }
 
-        mapped_type &add_argument(const key_type &arg_name)
+        template<StringLike... Names>
+        mapped_type &add_argument(Names &&...names)
         {
+            static_assert(
+              sizeof...(Names) > 0,
+              "[argparse] error: add_argument() needs at least one argument as a name (starting with '--')");
+
+            const std::vector<std::string> data{
+                names...
+            };// NOLINT(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+
+            const auto primary_name =
+              std::find_if(data.begin(), data.end(), [](const auto elem) { return elem.starts_with("--"); });
+
+            assert(
+                primary_name != data.end() &&
+                "[argparse] error: add_argument() requires at least one argument name starting with '--' for non "
+                "positional arguments");
+
+            const auto ill_formed_name =
+              std::find_if(data.begin(), data.end(), [](const auto elem) { return !elem.starts_with("-"); });
+
+            assert(ill_formed_name == data.end() &&
+                "[argparse] error: add_argument() requires all argument names to start with '-' or '--', respectively, for short or long "
+                "versions for non"
+                "positional arguments");
+
             // check if another key with that name already existed
             assert(
-              this->mapped_args.find(arg_name) == this->mapped_args.end()
-              && "[argparse] error: duplicate flag name!\n");
+              this->mapped_args.find(*primary_name) == this->mapped_args.end()
+              && "[argparse] error: add_argument() duplicate flag name!\n");
 
-            const auto [it, success] = this->mapped_args.emplace(arg_name, Arg{ arg_name });
+            const auto [it, success] = this->mapped_args.emplace(
+              *primary_name, Arg{ ArgNames{ .aliases = data, .primary_name = *primary_name } });
             return it->second;
         }
 
@@ -148,7 +192,10 @@ namespace argparse {
             }
 
             for (auto &[arg_name, arg] : this->mapped_args) {
-                const auto it        = std::find(this->program_args.begin(), this->program_args.end(), arg_name);
+                const auto it =
+                  std::find_if(this->program_args.begin(), this->program_args.end(), [&](const auto elem) {
+                      return arg.has_name(elem);
+                  });
                 const auto arg_found = it != this->program_args.end();
 
                 if (!arg_found && arg.has_flag(ArgFlags::REQUIRED)) {
