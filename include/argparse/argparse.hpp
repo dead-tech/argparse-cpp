@@ -169,7 +169,8 @@ namespace argparse {
         {
             static_assert(
               sizeof...(Names) > 0,
-              "[argparse] error: add_argument() needs at least one argument as a name (starting with '--')");
+              "[argparse] error: add_argument() needs at least one argument as a name (starting with '--' for "
+              "positional arguments)");
 
             const std::vector<std::string> data{ names... }; // NOLINT
 
@@ -189,10 +190,19 @@ namespace argparse {
                 "versions for non"
                 "positional arguments");
 
+            // check if the names collide with some builtin
+            std::for_each(data.begin(), data.end(), [&](const auto &name) {
+                assert(
+                  !this->builtins.contains(name)
+                  && "[argparse] error: add_argument() cannot add an argument with the same name as a builtin");
+            });
+
             // check if another key with that name already existed
-            assert(
-              this->mapped_args.find(*primary_name) == this->mapped_args.end()
-              && "[argparse] error: add_argument() duplicate flag name!\n");
+            std::for_each(this->mapped_args.begin(), this->mapped_args.end(), [&](const auto &pair) {
+                assert(
+                  pair.first != *primary_name && pair.second.names.aliases != data
+                  && "[argparse] error: add_argument() cannot add an argument with the same name as another argument");
+            });
 
             const auto [it, success] = this->mapped_args.emplace(
               *primary_name, Arg{ ArgNames{ .aliases = data, .primary_name = *primary_name } });
@@ -204,7 +214,7 @@ namespace argparse {
             this->create_usage_message();
             this->create_help_message();
 
-            if (const auto builtin = this->check_builtins(); builtin.has_value()) {
+            if (const auto builtin = this->get_builtin_if(); builtin.has_value()) {
                 const auto fn = builtin.value();
                 fn();
                 return {};
@@ -308,7 +318,7 @@ namespace argparse {
             this->help_message = this->usage_message + required_ss.str() + "\n" + optional_ss.str();
         }
 
-        auto check_builtins() const -> std::optional<builtins_type::mapped_type>
+        auto get_builtin_if() const -> std::optional<builtins_type::mapped_type>
         {
             using return_type = std::optional<builtins_type::mapped_type>;
 
