@@ -272,7 +272,9 @@ namespace argparse {
         {
             this->usage_message = "usage: " + this->program_name + " [--help] ";
             for (const auto &[arg_name, arg] : this->mapped_args) {
-                this->usage_message += (arg.has_flag(ArgFlags::REQUIRED) ? arg_name : format_as_optional(arg_name));
+                this->usage_message +=
+                  (arg.has_flag(ArgFlags::REQUIRED) ? arg_name + ' ' + utils::to_upper(arg_name)
+                                                    : format_as_optional(arg_name + ' ' + utils::to_upper(arg_name)));
                 this->usage_message += ' ';
             }
 
@@ -281,31 +283,25 @@ namespace argparse {
 
         void create_help_message()
         {
-            std::stringstream ss;
+            std::stringstream optional_ss;
+            std::stringstream required_ss;
 
-            ss << this->usage_message;
+            optional_ss << "optional arguments:\n";
+            optional_ss << "  --help\t\tshow this help message and exit\n";
 
-            ss << "optional arguments:\n";
-            ss << "  --help\t\tshow this help message and exit\n";
+            required_ss << "required arguments:\n";
 
             for (const auto &[arg_name, arg] : this->mapped_args) {
                 const std::string message = "  " + this->format_argument_names(arg.names) + ' '
                                             + utils::to_upper(arg_name) + ' ' + arg.help_message + '\n';
-                if (!arg.has_flag(ArgFlags::REQUIRED)) { ss << message; }
-            }
-
-            ss << "\n\n";
-            ss << "required arguments:\n";
-
-            for (const auto &[arg_name, arg] : this->mapped_args) {
-                if (arg.has_flag(ArgFlags::REQUIRED)) {
-                    const std::string message = "  " + this->format_argument_names(arg.names) + ' '
-                                                + utils::to_upper(arg_name) + ' ' + arg.help_message + '\n';
-                    ss << message;
+                if (!arg.has_flag(ArgFlags::REQUIRED)) {
+                    optional_ss << message;
+                } else {
+                    required_ss << message;
                 }
             }
 
-            this->help_message = ss.str();
+            this->help_message = this->usage_message + required_ss.str() + "\n" + optional_ss.str();
         }
 
 

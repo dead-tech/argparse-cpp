@@ -17,7 +17,7 @@ TEST_CASE("Help message test", "[argparse]")
 
     const auto args = parser.parse_args();
 
-    REQUIRE(parser.get_help_message() == "usage: program_name [--help] [--repeat] --build-dir \n\noptional arguments:\n  --help\t\tshow this help message and exit\n  --repeat, -R --REPEAT \n\n\nrequired arguments:\n  --build-dir --BUILD-DIR path to build directory\n");
+    REQUIRE(parser.get_help_message() == "usage: program_name [--help] [--repeat --REPEAT] --build-dir --BUILD-DIR \n\nrequired arguments:\n  --build-dir --BUILD-DIR path to build directory\n\noptional arguments:\n  --help		show this help message and exit\n  --repeat, -R --REPEAT \n");
 }
 
 TEST_CASE("Usage message test", "[argparse]")
@@ -35,5 +35,6 @@ TEST_CASE("Usage message test", "[argparse]")
 
     const auto args = parser.parse_args();
 
-    REQUIRE(parser.get_usage_message() == "usage: program_name [--help] [--repeat] --build-dir \n\n");
+    REQUIRE(
+      parser.get_usage_message() == "usage: program_name [--help] [--repeat --REPEAT] --build-dir --BUILD-DIR \n\n");
 }
