@@ -6,6 +6,7 @@
 #include <charconv>
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -252,6 +253,15 @@ namespace argparse {
       private:
         [[nodiscard]] std::string format_as_optional(const std::string &arg_name) { return "[" + arg_name + "]"; }
 
+        [[nodiscard]] std::string format_argument_names(const ArgNames &names)
+        {
+            return std::accumulate(
+              std::next(names.aliases.begin()),
+              names.aliases.end(),
+              names.aliases[0],
+              [](const auto &a, const auto &b) { return a + ", " + b; });
+        }
+
         void error_required_arg(const std::string &arg_name) const
         {
             std::cerr << "[argparse] error: arg " << std::quoted(arg_name) << " is required\n";
@@ -279,8 +289,8 @@ namespace argparse {
             ss << "  --help\t\tshow this help message and exit\n";
 
             for (const auto &[arg_name, arg] : this->mapped_args) {
-                const std::string message = "  " + this->format_as_optional(arg_name) + ' ' + utils::to_upper(arg_name)
-                                            + ' ' + arg.help_message + '\n';
+                const std::string message = "  " + this->format_argument_names(arg.names) + ' '
+                                            + utils::to_upper(arg_name) + ' ' + arg.help_message + '\n';
                 if (!arg.has_flag(ArgFlags::REQUIRED)) { ss << message; }
             }
 
@@ -289,8 +299,8 @@ namespace argparse {
 
             for (const auto &[arg_name, arg] : this->mapped_args) {
                 if (arg.has_flag(ArgFlags::REQUIRED)) {
-                    const std::string message =
-                      "  " + arg_name + ' ' + utils::to_upper(arg_name) + ' ' + arg.help_message + '\n';
+                    const std::string message = "  " + this->format_argument_names(arg.names) + ' '
+                                                + utils::to_upper(arg_name) + ' ' + arg.help_message + '\n';
                     ss << message;
                 }
             }

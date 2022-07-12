@@ -13,11 +13,11 @@ TEST_CASE("Help message test", "[argparse]")
       .set_flags(argparse::ArgFlags::REQUIRED)
       .set_help("path to build directory");
 
-    parser.add_argument("--repeat").set_type(argparse::ArgTypes::BOOL);
+    parser.add_argument("--repeat", "-R").set_type(argparse::ArgTypes::BOOL);
 
     const auto args = parser.parse_args();
 
-    REQUIRE(parser.get_help_message() == "usage: program_name [--help] [--repeat] --build-dir \n\noptional arguments:\n  --help\t\tshow this help message and exit\n  [--repeat] --REPEAT \n\n\nrequired arguments:\n  --build-dir --BUILD-DIR path to build directory\n");
+    REQUIRE(parser.get_help_message() == "usage: program_name [--help] [--repeat] --build-dir \n\noptional arguments:\n  --help\t\tshow this help message and exit\n  --repeat, -R --REPEAT \n\n\nrequired arguments:\n  --build-dir --BUILD-DIR path to build directory\n");
 }
 
 TEST_CASE("Usage message test", "[argparse]")
