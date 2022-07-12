@@ -220,6 +220,13 @@ namespace argparse {
                 return {};
             }
 
+            std::for_each(this->program_args.begin(), this->program_args.end(), [&](const auto &arg) {
+                assert(
+                  arg.starts_with('-') && !this->mapped_args.contains(arg)
+                  && "[argparse] error: unrecognized argument");
+            });
+
+
             for (auto &[arg_name, arg] : this->mapped_args) {
                 const auto it =
                   std::find_if(this->program_args.begin(), this->program_args.end(), [&](const auto elem) {
