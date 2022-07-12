@@ -17,12 +17,17 @@
 namespace argparse {
 
     template<typename T>
-    concept StringLike = std::is_convertible_v<T, std::string> || std::is_convertible_v<T, const char *>;
+    concept StringLike = std::is_convertible_v<T, std::string>;
+
+    template<typename T>
+    concept SupportedArgumentType = std::is_integral_v<T> || std::is_convertible_v<T, std::string>;
 
     namespace utils {
-        static bool str_to_bool(const std::string &str) { return str == "true" ? true : false; }
+        [[nodiscard]] static bool str_to_bool(const std::string &str) noexcept { return str == "true" ? true : false; }
 
-        static std::string to_upper(const std::string &str)
+        [[nodiscard]] static std::string bool_to_str(const bool boolean) noexcept { return boolean ? "true" : "false"; }
+
+        [[nodiscard]] static std::string to_upper(const std::string &str)
         {
             std::string result;
             result.reserve(str.size());
@@ -65,6 +70,7 @@ namespace argparse {
         ArgFlags    flags = ArgFlags::DEFAULT;
         std::string help_message;
         std::string value;
+        bool        has_default_value = false;
 
       public:
         Arg() = default;
@@ -122,6 +128,20 @@ namespace argparse {
         Arg &set_help(const std::string &help_message)
         {
             this->help_message = help_message;
+            return *this;
+        }
+
+        template<SupportedArgumentType T>
+        Arg &set_default(T &&value)
+        {
+            if constexpr (std::is_convertible_v<T, std::string>) {
+                this->value = std::forward<T>(value); // NOLINT
+            } else if constexpr (std::is_same_v<T, bool>) {
+                this->value = utils::bool_to_str(std::forward<T>(value));
+            } else {
+                this->value = std::to_string(std::forward<T>(value));
+            }
+
             return *this;
         }
     };
@@ -196,7 +216,7 @@ namespace argparse {
                   });
                 const auto arg_found = it != this->program_args.end();
 
-                if (!arg_found && arg.has_flag(ArgFlags::REQUIRED)) {
+                if (!arg_found && arg.has_flag(ArgFlags::REQUIRED) && !arg.has_default_value) {
                     this->error_required_arg(arg_name);
                     return {};
                 }
