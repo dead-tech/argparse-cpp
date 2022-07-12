@@ -204,7 +204,10 @@ namespace argparse {
             this->create_help_message();
 
             // Check if help flag is specified
-            const auto help_flag = std::find(this->program_args.begin(), this->program_args.end(), "--help");
+            const auto help_flag =
+              std::find_if(this->program_args.begin(), this->program_args.end(), [](const auto elem) {
+                  return elem == "--help" || elem == "-H";
+              });
             if (help_flag != this->program_args.end()) {
                 this->print_help();
                 return {};
@@ -270,7 +273,7 @@ namespace argparse {
 
         void create_usage_message()
         {
-            this->usage_message = "usage: " + this->program_name + " [--help] ";
+            this->usage_message = "usage: " + this->program_name + " [-H] ";
             for (const auto &[arg_name, arg] : this->mapped_args) {
                 this->usage_message +=
                   (arg.has_flag(ArgFlags::REQUIRED) ? arg_name + ' ' + utils::to_upper(arg_name)
@@ -287,7 +290,7 @@ namespace argparse {
             std::stringstream required_ss;
 
             optional_ss << "optional arguments:\n";
-            optional_ss << "  --help\t\tshow this help message and exit\n";
+            optional_ss << "  -H, --help\t\tshow this help message and exit\n";
 
             required_ss << "required arguments:\n";
 
