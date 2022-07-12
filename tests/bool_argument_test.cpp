@@ -1,7 +1,7 @@
 #include "argparse/argparse.hpp"
 #include <catch2/catch.hpp>
 
-TEST_CASE("Bool type arguments test (store true)", "[argparse]")
+TEST_CASE("Bool type arguments test (store true)", "[argparse][bool]")
 {
     const int   argc   = 2;
     const char *argv[] = { "program_name", "--quiet" };
@@ -14,7 +14,7 @@ TEST_CASE("Bool type arguments test (store true)", "[argparse]")
     REQUIRE(args.at("--quiet").as<bool>() == true);
 }
 
-TEST_CASE("Bool type arguments test (store false)", "[argparse]")
+TEST_CASE("Bool type arguments test (store false)", "[argparse][bool]")
 {
     const int   argc   = 2;
     const char *argv[] = { "program_name", "--run" };

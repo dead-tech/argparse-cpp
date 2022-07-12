@@ -2,7 +2,7 @@
 #include <catch2/catch.hpp>
 
 
-TEST_CASE("Parse arguments test", "[argparse]")
+TEST_CASE("Parse arguments test", "[argparse][parse]")
 {
     const int   argc   = 6;
     const char *argv[] = {

@@ -3,7 +3,7 @@
 #include <iostream>
 
 
-TEST_CASE("Required arguments test", "[argparse]")
+TEST_CASE("Required arguments test", "[argparse][required]")
 {
     const int   argc   = 2;
     const char *argv[] = { "program_name", "--fail" };

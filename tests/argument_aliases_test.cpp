@@ -1,7 +1,7 @@
 #include "argparse/argparse.hpp"
 #include <catch2/catch.hpp>
 
-TEST_CASE("Argument aliases test", "[argparse]")
+TEST_CASE("Argument aliases test", "[argparse][aliases]")
 {
     const int   argc   = 3;
     const char *argv[] = { "program_name", "--quiet", "-V" };
@@ -18,7 +18,7 @@ TEST_CASE("Argument aliases test", "[argparse]")
     REQUIRE(args.at("--version").as<bool>() == true);
 }
 
-TEST_CASE("Argument aliases test (not present)", "[argparse]")
+TEST_CASE("Argument aliases test (not present)", "[argparse][aliases]")
 {
     const int   argc   = 1;
     const char *argv[] = { "program_name" };
@@ -31,7 +31,7 @@ TEST_CASE("Argument aliases test (not present)", "[argparse]")
     REQUIRE(args.at("--quiet").as<bool>() == false);
 }
 
-TEST_CASE("Argument aliases test (short opt)", "[argparse]")
+TEST_CASE("Argument aliases test (short opt)", "[argparse][aliases]")
 {
     const int   argc   = 2;
     const char *argv[] = { "program_name", "-Q" };

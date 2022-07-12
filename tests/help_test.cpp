@@ -2,7 +2,7 @@
 #include <catch2/catch.hpp>
 
 
-TEST_CASE("Help message test", "[argparse]")
+TEST_CASE("Help message test", "[argparse][help]")
 {
     const int   argc   = 2;
     const char *argv[] = { "program_name", "--help" };
@@ -20,7 +20,7 @@ TEST_CASE("Help message test", "[argparse]")
     REQUIRE(parser.get_help_message() == "usage: program_name [-H] [--repeat --REPEAT] --build-dir --BUILD-DIR \n\nrequired arguments:\n  --build-dir --BUILD-DIR path to build directory\n\noptional arguments:\n  -H, --help		show this help message and exit\n  --repeat, -R --REPEAT \n");
 }
 
-TEST_CASE("Usage message test", "[argparse]")
+TEST_CASE("Usage message test", "[argparse][help]")
 {
     const int   argc   = 2;
     const char *argv[] = { "program_name", "--help" };

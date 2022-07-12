@@ -1,7 +1,7 @@
 #include "argparse/argparse.hpp"
 #include <catch2/catch.hpp>
 
-TEST_CASE("new api test", "[argparse]")
+TEST_CASE("new api test", "[argparse][api]")
 {
     const int   argc   = 2;
     const char *argv[] = { "program_name", "--quiet" };
