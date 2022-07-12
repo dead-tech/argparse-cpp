@@ -154,11 +154,12 @@ namespace argparse {
         using map_type       = std::unordered_map<std::string, Arg>;
         using key_type       = map_type::key_type;
         using mapped_type    = map_type::mapped_type;
+        using builtins_type  = std::unordered_map<std::string, std::function<void()>>;
 
       public:
         // clang-format off
-        ArgumentParser(const int argc, const char **argv)
-          : program_args(argv, argv + argc), program_name{ program_args.at(0) } {};// NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        ArgumentParser(const int argc, const char **argv, std::string version = "0.0.1")
+          : program_args(argv, argv + argc), program_name{ program_args.at(0) }, version { std::move(version) } {}; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         // clang-format on
 
         [[nodiscard]] container_type args() const noexcept { return this->program_args; }
@@ -203,13 +204,9 @@ namespace argparse {
             this->create_usage_message();
             this->create_help_message();
 
-            // Check if help flag is specified
-            const auto help_flag =
-              std::find_if(this->program_args.begin(), this->program_args.end(), [](const auto elem) {
-                  return elem == "--help" || elem == "-H";
-              });
-            if (help_flag != this->program_args.end()) {
-                this->print_help();
+            if (const auto builtin = this->check_builtins(); builtin.has_value()) {
+                const auto fn = builtin.value();
+                fn();
                 return {};
             }
 
@@ -249,9 +246,13 @@ namespace argparse {
 
         void print_usage() const { std::cout << this->usage_message << '\n'; }
 
+        void print_version() const { std::cout << this->version << '\n'; }
+
         [[nodiscard]] const std::string &get_help_message() const { return this->help_message; }
 
         [[nodiscard]] const std::string &get_usage_message() const { return this->usage_message; }
+
+        [[nodiscard]] const std::string &get_version() const { return this->version; }
 
       private:
         [[nodiscard]] std::string format_as_optional(const std::string &arg_name) { return "[" + arg_name + "]"; }
@@ -307,6 +308,20 @@ namespace argparse {
             this->help_message = this->usage_message + required_ss.str() + "\n" + optional_ss.str();
         }
 
+        auto check_builtins() const -> std::optional<builtins_type::mapped_type>
+        {
+            using return_type = std::optional<builtins_type::mapped_type>;
+
+            for (const auto &[name, fn] : this->builtins) {
+                const auto found = std::find_if(
+                  this->program_args.begin(), this->program_args.end(), [&](const auto elem) { return elem == name; });
+
+                if (found != this->program_args.end()) { return return_type{ fn }; }
+            }
+
+            return return_type{ std::nullopt };
+        }
+
 
       private:
         container_type program_args;
@@ -314,6 +329,14 @@ namespace argparse {
         map_type       mapped_args;
         std::string    usage_message;
         std::string    help_message;
+        std::string    version;
+
+        builtins_type builtins = {
+            { "--help", [this]() { this->print_help(); } },
+            { "-H", [this]() { this->print_help(); } },
+            { "--version", [this]() { this->print_version(); } },
+            { "-V", [this]() { this->print_version(); } },
+        };
     };
 
 } // namespace argparse
