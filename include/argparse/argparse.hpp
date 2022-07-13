@@ -305,7 +305,10 @@ namespace argparse {
         [[nodiscard]] const std::string &get_version() const { return this->version; }
 
       private:
-        [[nodiscard]] std::string format_as_optional(const std::string &arg_name) { return "[" + arg_name + "]"; }
+        [[nodiscard]] std::string format_as_optional(const std::string &arg_name)
+        {
+            return utils::format("[%]", arg_name);
+        }
 
         [[nodiscard]] std::string format_argument_names(const ArgNames &names)
         {
@@ -318,17 +321,16 @@ namespace argparse {
 
         void error_required_arg(const std::string &arg_name) const
         {
-            std::cerr << "[argparse] error: arg " << std::quoted(arg_name) << " is required\n";
+            std::cerr << utils::format("[argparse] error: arg % is required", std::quoted(arg_name));
             this->print_usage();
         }
 
         void create_usage_message()
         {
-            this->usage_message = "usage: " + this->program_name + " [-H] ";
+            this->usage_message = utils::format("usage: % [-H] ", this->program_name);
             for (const auto &[arg_name, arg] : this->mapped_args) {
-                this->usage_message +=
-                  (arg.has_flag(ArgFlags::REQUIRED) ? arg_name + ' ' + utils::to_upper(arg_name)
-                                                    : format_as_optional(arg_name + ' ' + utils::to_upper(arg_name)));
+                const auto common = utils::format("% %", arg_name, utils::to_upper(arg_name));
+                this->usage_message += (arg.has_flag(ArgFlags::REQUIRED) ? common : format_as_optional(common));
                 this->usage_message += ' ';
             }
 
@@ -346,8 +348,8 @@ namespace argparse {
             required_ss << "required arguments:\n";
 
             for (const auto &[arg_name, arg] : this->mapped_args) {
-                const std::string message = "  " + this->format_argument_names(arg.names) + ' '
-                                            + utils::to_upper(arg_name) + ' ' + arg.help_message + '\n';
+                const std::string message = utils::format(
+                  "  % % %\n", this->format_argument_names(arg.names), utils::to_upper(arg_name), arg.help_message);
                 if (!arg.has_flag(ArgFlags::REQUIRED)) {
                     optional_ss << message;
                 } else {
