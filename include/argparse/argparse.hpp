@@ -18,12 +18,11 @@
 namespace argparse {
 
     template<typename T>
-    concept StringLike = std::is_convertible_v<T, std::string>;
-
-    template<typename T>
     concept SupportedArgumentType = std::is_integral_v<T> || std::is_convertible_v<T, std::string>;
 
     namespace utils {
+        template<typename T>
+        concept StringLike = std::is_convertible_v<T, std::string>;
 
         template<typename T>
         concept Streamable = requires(std::ostream &os, const T &value)
@@ -194,7 +193,7 @@ namespace argparse {
 
         [[nodiscard]] container_type args() const noexcept { return this->program_args; }
 
-        template<StringLike... Names>
+        template<utils::StringLike... Names>
         mapped_type &add_argument(Names &&...names)
         {
             static_assert(
