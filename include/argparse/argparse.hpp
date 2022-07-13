@@ -17,9 +17,6 @@
 
 namespace argparse {
 
-    template<typename T>
-    concept SupportedArgumentType = std::is_integral_v<T> || std::is_convertible_v<T, std::string>;
-
     namespace utils {
         template<typename T>
         concept StringLike = std::is_convertible_v<T, std::string>;
@@ -65,6 +62,9 @@ namespace argparse {
             return result.str();
         }
     } // namespace utils
+
+    template<typename T>
+    concept SupportedArgumentType = std::is_integral_v<T> || std::is_convertible_v<T, std::string>;
 
     enum class ArgTypes
     {
