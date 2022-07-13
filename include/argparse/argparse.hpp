@@ -233,6 +233,10 @@ namespace argparse {
                   && "[argparse] error: add_argument() cannot add an argument with the same name as another argument");
             });
 
+            std::for_each(data.begin(), data.end(), [&](const auto &name) {
+                this->hashed_names.push_back(std::hash<std::string>{}(name));
+            });
+
             const auto [it, success] = this->mapped_args.emplace(
               *primary_name, Arg{ ArgNames{ .aliases = data, .primary_name = *primary_name } });
             return it->second;
@@ -249,11 +253,11 @@ namespace argparse {
                 return {};
             }
 
-            std::for_each(this->program_args.begin(), this->program_args.end(), [&](const auto &arg) {
-                assert(
-                  arg.starts_with('-') && !this->mapped_args.contains(arg)
-                  && "[argparse] error: unrecognized argument");
-            });
+            // std::for_each(this->program_args.begin(), this->program_args.end(), [&](const auto &arg) {
+            //     assert(
+            //       arg.starts_with('-') && !this->hashed_names.contains(arg)
+            //       && "[argparse] error: unrecognized argument");
+            // });
 
 
             for (auto &[arg_name, arg] : this->mapped_args) {
@@ -376,6 +380,8 @@ namespace argparse {
         std::string    usage_message;
         std::string    help_message;
         std::string    version;
+
+        std::vector<std::size_t> hashed_names;
 
         builtins_type builtins = {
             { "--help", [this]() { this->print_help(); } },
