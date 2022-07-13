@@ -8,7 +8,9 @@
 #include <iostream>
 #include <numeric>
 #include <optional>
+#include <source_location>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -24,9 +26,9 @@ namespace argparse {
         template<typename T>
         concept Streamable = requires(std::ostream &os, const T &value)
         {
-            {
-                os << value
-                } -> std::convertible_to<std::ostream &>;
+            // clang-format off
+            { os << value } -> std::convertible_to<std::ostream &>;
+            // clang-format on
         };
 
         [[nodiscard]] static bool str_to_bool(const std::string &str) noexcept { return str == "true" ? true : false; }
@@ -62,6 +64,31 @@ namespace argparse {
             return result.str();
         }
     } // namespace utils
+
+    namespace exceptions {
+        class ArgparseException : public std::runtime_error
+        {
+          public:
+            template<utils::Streamable... Args>
+            ArgparseException(const std::source_location &location, const std::string_view fmt, Args &&...args)
+              : std::runtime_error("")
+            {
+                const auto expanded_message = utils::format(fmt, std::forward<Args>(args)...);
+                this->message               = format(
+                  "[argparse] error in file: %(%:%) in function `%` -> %\n",
+                  location.file_name(),
+                  location.line(),
+                  location.column(),
+                  location.function_name(),
+                  expanded_message);
+            }
+
+            [[nodiscard]] const char *what() const noexcept override { return this->message.c_str(); }
+
+          private:
+            std::string message;
+        };
+    } // namespace exceptions
 
     template<typename T>
     concept SupportedArgumentType = std::is_integral_v<T> || std::is_convertible_v<T, std::string>;
