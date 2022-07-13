@@ -74,7 +74,7 @@ namespace argparse {
               : std::runtime_error("")
             {
                 const auto expanded_message = utils::format(fmt, std::forward<Args>(args)...);
-                this->message               = format(
+                this->message               = utils::format(
                   "[argparse] error in file: %(%:%) in function `%` -> %\n",
                   location.file_name(),
                   location.line(),
@@ -230,42 +230,23 @@ namespace argparse {
 
             const std::vector<std::string> data{ names... }; // NOLINT
 
-            const auto primary_name =
-              std::find_if(data.begin(), data.end(), [](const auto elem) { return elem.starts_with("--"); });
+            // Checks that the argument has at least a name starting with a -- (a primary name)
+            const auto primary_name = this->guarantee_primary_name(data);
 
-            assert(
-                primary_name != data.end() &&
-                "[argparse] error: add_argument() requires at least one argument name starting with '--' for non "
-                "positional arguments");
+            // Ensures that the argument names all start with -- or - (not supporting positional arguments right now)
+            this->verify_well_formed_names(data);
 
-            const auto ill_formed_name =
-              std::find_if(data.begin(), data.end(), [](const auto elem) { return !elem.starts_with("-"); });
+            // Also makes sure that the argument names do not collide with builtins
+            this->check_for_duplicate_names(data);
 
-            assert(ill_formed_name == data.end() &&
-                "[argparse] error: add_argument() requires all argument names to start with '-' or '--', respectively, for short or long "
-                "versions for non"
-                "positional arguments");
-
-            // check if the names collide with some builtin
-            std::for_each(data.begin(), data.end(), [&](const auto &name) {
-                assert(
-                  !this->builtins.contains(name)
-                  && "[argparse] error: add_argument() cannot add an argument with the same name as a builtin");
-            });
-
-            // check if another key with that name already existed
-            std::for_each(this->mapped_args.begin(), this->mapped_args.end(), [&](const auto &pair) {
-                assert(
-                  pair.first != *primary_name && pair.second.names.aliases != data
-                  && "[argparse] error: add_argument() cannot add an argument with the same name as another argument");
-            });
-
+            // Add the hash of the new names
+            // It is required to check for naming collisions
             std::for_each(data.begin(), data.end(), [&](const auto &name) {
                 this->hashed_names.push_back(std::hash<std::string>{}(name));
             });
 
-            const auto [it, success] = this->mapped_args.emplace(
-              *primary_name, Arg{ ArgNames{ .aliases = data, .primary_name = *primary_name } });
+            const auto [it, success] =
+              this->mapped_args.emplace(primary_name, Arg{ ArgNames{ .aliases = data, .primary_name = primary_name } });
             return it->second;
         }
 
@@ -280,12 +261,8 @@ namespace argparse {
                 return {};
             }
 
-            // std::for_each(this->program_args.begin(), this->program_args.end(), [&](const auto &arg) {
-            //     assert(
-            //       arg.starts_with('-') && !this->hashed_names.contains(arg)
-            //       && "[argparse] error: unrecognized argument");
-            // });
-
+            // Throws if a not registered argument is found in the program args
+            this->throw_if_unrecognized();
 
             for (auto &[arg_name, arg] : this->mapped_args) {
                 const auto it =
@@ -401,6 +378,71 @@ namespace argparse {
             return return_type{ std::nullopt };
         }
 
+        auto guarantee_primary_name(const std::vector<std::string> &names) const -> std::string
+        {
+            const auto primary_name =
+              std::find_if(names.begin(), names.end(), [](const auto elem) { return elem.starts_with("--"); });
+
+            if (primary_name == names.end()) {
+                throw exceptions::ArgparseException(
+                  std::source_location::current(),
+                  "[argparse] error: add_argument() needs at least one argument as a name (starting with '--' for non"
+                  "positional arguments)");
+            }
+
+            return *primary_name;
+        }
+
+        void verify_well_formed_names(const std::vector<std::string> &names) const
+        {
+            const auto ill_formed_name =
+              std::find_if(names.begin(), names.end(), [](const auto elem) { return !elem.starts_with("-"); });
+
+            if (ill_formed_name != names.end()) {
+                throw exceptions::ArgparseException(
+                  std::source_location::current(),
+                  "[argparse] error: add_argument() requires all argument names to start with '-' or '--', "
+                  "respectively, for short or long "
+                  "versions for non positional arguments");
+            }
+        }
+
+        void check_for_duplicate_names(const std::vector<std::string> &names) const
+        {
+            std::for_each(names.begin(), names.end(), [&](const auto &name) {
+                const auto found_hash =
+                  std::find(this->hashed_names.begin(), this->hashed_names.end(), std::hash<std::string>{}(name))
+                  != this->hashed_names.end();
+
+                if (found_hash) {
+                    throw exceptions::ArgparseException(
+                      std::source_location::current(),
+                      "[argparse] error: add_argument() cannot add an argument with name % as it already exists",
+                      std::quoted(name));
+                }
+
+                if (this->builtins.contains(name)) {
+                    throw exceptions::ArgparseException(
+                      std::source_location::current(),
+                      "[argparse] error: add_argument() cannot add an argument with name % as it is a builtin",
+                      std::quoted(name));
+                }
+            });
+        }
+
+        void throw_if_unrecognized() const
+        {
+            std::for_each(this->program_args.begin(), this->program_args.end(), [&](const auto &arg) {
+                const auto found_hash =
+                  std::find(this->hashed_names.begin(), this->hashed_names.end(), std::hash<std::string>{}(arg))
+                  != this->hashed_names.end();
+
+                if (arg.starts_with('-') && !found_hash) {
+                    throw exceptions::ArgparseException(
+                      std::source_location::current(), "[argparse] error: unrecognized argument %\n", std::quoted(arg));
+                }
+            });
+        }
 
       private:
         container_type program_args;
@@ -410,7 +452,7 @@ namespace argparse {
         std::string    help_message;
         std::string    version;
 
-        std::vector<std::size_t> hashed_names;
+        std::vector<std::size_t> hashed_names = {};
 
         builtins_type builtins = {
             { "--help", [this]() { this->print_help(); } },
