@@ -24,6 +24,15 @@ namespace argparse {
     concept SupportedArgumentType = std::is_integral_v<T> || std::is_convertible_v<T, std::string>;
 
     namespace utils {
+
+        template<typename T>
+        concept Streamable = requires(std::ostream &os, const T &value)
+        {
+            {
+                os << value
+                } -> std::convertible_to<std::ostream &>;
+        };
+
         [[nodiscard]] static bool str_to_bool(const std::string &str) noexcept { return str == "true" ? true : false; }
 
         [[nodiscard]] static std::string bool_to_str(const bool boolean) noexcept { return boolean ? "true" : "false"; }
@@ -34,6 +43,27 @@ namespace argparse {
             result.reserve(str.size());
             std::transform(str.begin(), str.end(), std::back_inserter(result), [](char c) { return std::toupper(c); });
             return result;
+        }
+
+        template<Streamable... Args>
+        [[nodiscard]] static constexpr auto format(std::string_view fmt, Args &&...args) -> std::string
+        {
+            assert(
+              std::count(fmt.begin(), fmt.end(), '%') == sizeof...(Args)
+              && "format() error: wrong number of arguments");
+
+            std::stringstream result;
+
+            const auto format_helper = [&](const auto &value) {
+                const auto placeholder = fmt.find('%');
+                result << fmt.substr(0, placeholder);
+                result << value;
+                fmt = fmt.substr(placeholder + 1, fmt.size() - 1);
+            };
+
+            (format_helper(std::forward<Args>(args)), ...);
+            result << fmt;
+            return result.str();
         }
     } // namespace utils
 
