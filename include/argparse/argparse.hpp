@@ -93,6 +93,12 @@ namespace argparse {
     template<typename T>
     concept SupportedArgumentType = std::is_integral_v<T> || std::is_convertible_v<T, std::string>;
 
+    enum class ArgKind
+    {
+        Positional,
+        Optional,
+    };
+
     enum class ArgTypes
     {
         STRING = 0,
@@ -129,11 +135,13 @@ namespace argparse {
         std::string                value;
         bool                       has_default_value = false;
         std::optional<std::string> metavar;
+        size_t                     position = 0;
 
       public:
         Arg() = default;
 
-        explicit Arg(ArgNames names) : names{ std::move(names) } {};
+        Arg(ArgNames names, const ArgFlags required = ArgFlags::DEFAULT)
+          : names{ std::move(names) }, flags{ required } {};
 
       public:
         friend bool operator==(const Arg &rhs, const Arg &lhs)
@@ -238,23 +246,16 @@ namespace argparse {
             const std::vector<std::string> data{ names... }; // NOLINT
 
             // Checks that the argument has at least a name starting with a -- (a primary name)
-            const auto primary_name = this->guarantee_primary_name(data);
+            // Also returns based on the presence of the primary name the type of argument we are adding
+            const auto [arg_kind, primary_name] = this->get_primary_name(data);
 
-            // Ensures that the argument names all start with -- or - (not supporting positional arguments right now)
-            this->verify_well_formed_names(data);
+            if (arg_kind == ArgKind::Positional) {
+                return this->add_positional_argument(data);
+            } else if (arg_kind == ArgKind::Optional) {
+                return this->add_optional_argument(data, primary_name.value());
+            }
 
-            // Also makes sure that the argument names do not collide with builtins
-            this->check_for_duplicate_names(data);
-
-            // Add the hash of the new names
-            // It is required to check for naming collisions
-            std::for_each(data.begin(), data.end(), [&](const auto &name) {
-                this->hashed_names.push_back(std::hash<std::string>{}(name));
-            });
-
-            const auto [it, success] =
-              this->mapped_args.emplace(primary_name, Arg{ ArgNames{ .aliases = data, .primary_name = primary_name } });
-            return it->second;
+            assert(false && "unreachable");
         }
 
         [[nodiscard]] map_type parse_args()
@@ -268,37 +269,13 @@ namespace argparse {
                 return {};
             }
 
-            // Throws if a not registered argument is found in the program args
-            this->throw_if_unrecognized();
+            const auto [positional_args, optional_args] = this->split_program_args();
 
-            for (auto &[arg_name, arg] : this->mapped_args) {
-                const auto it =
-                  std::find_if(this->program_args.begin(), this->program_args.end(), [&](const auto elem) {
-                      return arg.has_name(elem);
-                  });
-                const auto arg_found = it != this->program_args.end();
+            this->parse_positional_args(positional_args);
 
-                if (!arg_found && arg.has_flag(ArgFlags::REQUIRED) && !arg.has_default_value) {
-                    this->error_required_arg(arg_name);
-                    return {};
-                }
-
-                if (arg_found) {
-                    if (arg.type == ArgTypes::BOOL) {
-                        arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "false" : arg.value = "true";
-                        this->mapped_args[arg_name] = arg;
-                        continue;
-                    }
-                    arg.value                   = *std::next(it);
-                    this->mapped_args[arg_name] = arg;
-                } else if (!arg_found) {
-                    if (arg.type == ArgTypes::BOOL) {
-                        arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "true" : arg.value = "false";
-                        this->mapped_args[arg_name] = arg;
-                        continue;
-                    }
-                }
-            }
+            // Throws if a not registered optional argument is found in the program args
+            this->throw_if_unrecognized(optional_args);
+            this->parse_optional_args(optional_args);
 
             return this->mapped_args;
         }
@@ -389,19 +366,26 @@ namespace argparse {
             return return_type{ std::nullopt };
         }
 
-        auto guarantee_primary_name(const std::vector<std::string> &names) const -> std::string
+        auto get_primary_name(const std::vector<std::string> &names) const
+          -> std::pair<ArgKind, std::optional<std::string>>
         {
+            // TODO: maybe do this more efficiently?
             const auto primary_name =
               std::find_if(names.begin(), names.end(), [](const auto elem) { return elem.starts_with("--"); });
 
-            if (primary_name == names.end()) {
+            const auto aliases =
+              std::find_if(names.begin(), names.end(), [](const auto elem) { return elem.starts_with("-"); });
+
+            if (primary_name == names.end() && aliases == names.end()) {
+                return std::make_pair(ArgKind::Positional, std::nullopt);
+            } else if (primary_name == names.end() && aliases != names.end()) {
                 throw exceptions::ArgparseException(
                   std::source_location::current(),
                   "[argparse] error: add_argument() needs at least one argument as a name (starting with '--' for non"
                   "positional arguments)");
             }
 
-            return *primary_name;
+            return std::make_pair(ArgKind::Optional, *primary_name);
         }
 
         void verify_well_formed_names(const std::vector<std::string> &names) const
@@ -441,9 +425,9 @@ namespace argparse {
             });
         }
 
-        void throw_if_unrecognized() const
+        void throw_if_unrecognized(const std::vector<std::string> &optional_args) const
         {
-            std::for_each(this->program_args.begin(), this->program_args.end(), [&](const auto &arg) {
+            std::for_each(optional_args.begin(), optional_args.end(), [&](const auto &arg) {
                 const auto found_hash =
                   std::find(this->hashed_names.begin(), this->hashed_names.end(), std::hash<std::string>{}(arg))
                   != this->hashed_names.end();
@@ -453,6 +437,106 @@ namespace argparse {
                       std::source_location::current(), "[argparse] error: unrecognized argument %\n", std::quoted(arg));
                 }
             });
+        }
+
+        [[nodiscard]] Arg &add_positional_argument(const std::vector<std::string> &names)
+        {
+            if (names.size() > 1) {
+                throw exceptions::ArgparseException(
+                  std::source_location::current(), "[argparse] error: positional arguments cannot have aliases");
+            }
+
+            this->hashed_names.push_back(std::hash<std::string>{}(names.front()));
+
+            Arg to_insert      = Arg{ ArgNames{ .aliases = names, .primary_name = names.front() }, ArgFlags::REQUIRED };
+            to_insert.position = this->num_positional_args++;
+
+            const auto [it, success] = this->mapped_args.emplace(
+              names.front(), Arg{ ArgNames{ .aliases = names, .primary_name = names.front() }, ArgFlags::REQUIRED });
+            return it->second;
+        }
+
+        [[nodiscard]] Arg &add_optional_argument(const std::vector<std::string> &names, const std::string &primary_name)
+        {
+            // Ensures that the argument names all start with -- or - (not supporting positional arguments right now)
+            this->verify_well_formed_names(names);
+
+            // Also makes sure that the argument names do not collide with builtins
+            this->check_for_duplicate_names(names);
+
+            // Add the hash of the new names
+            // It is required to check for naming collisions
+            std::for_each(names.begin(), names.end(), [&](const auto &name) {
+                this->hashed_names.push_back(std::hash<std::string>{}(name));
+            });
+
+            const auto [it, success] = this->mapped_args.emplace(
+              primary_name, Arg{ ArgNames{ .aliases = names, .primary_name = primary_name } });
+            return it->second;
+        }
+
+        [[nodiscard]] auto split_program_args() const -> std::pair<std::vector<std::string>, std::vector<std::string>>
+        {
+            const auto it =
+              std::find_if(std::next(this->program_args.begin()), this->program_args.end(), [](const auto &elem) {
+                  return elem.starts_with('-');
+              });
+
+            return std::make_pair(
+              std::vector(std::next(this->program_args.begin()), it), std::vector(it, this->program_args.end()));
+        }
+
+        void parse_positional_args(const std::vector<std::string> &positional_args)
+        {
+            if (positional_args.empty()) { return; }
+
+            if (positional_args.size() > this->num_positional_args) {
+                throw exceptions::ArgparseException(
+                  std::source_location::current(),
+                  "[argparse] error: too many positional arguments provided, expected %",
+                  this->num_positional_args);
+            }
+
+            std::for_each(positional_args.begin(), positional_args.end(), [&](const auto &elem) {
+                const auto to_update =
+                  std::find_if(this->mapped_args.begin(), this->mapped_args.end(), [&](const auto &pair) {
+                      return elem == pair.second.names.primary_name;
+                  });
+                to_update->second.value = elem;
+            });
+        }
+
+        void parse_optional_args(const std::vector<std::string> &optional_args)
+        {
+            for (auto &[arg_name, arg] : this->mapped_args) {
+                const auto it = std::find_if(
+                  optional_args.begin(), optional_args.end(), [&](const auto elem) { return arg.has_name(elem); });
+                const auto arg_found = it != this->program_args.end();
+
+                if (!arg_found && arg.has_flag(ArgFlags::REQUIRED) && !arg.has_default_value) {
+                    this->error_required_arg(arg_name);
+                    return;
+                }
+
+                if (optional_args.empty()) { return; }
+
+
+                if (arg_found) {
+                    if (arg.type == ArgTypes::BOOL) {
+                        arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "false" : arg.value = "true";
+                        this->mapped_args[arg_name] = arg;
+                        continue;
+                    }
+                    arg.value                   = *std::next(it);
+                    this->mapped_args[arg_name] = arg;
+                } else if (!arg_found) {
+                    if (arg.type == ArgTypes::BOOL) {
+                        arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "true" : arg.value = "false";
+                        this->mapped_args[arg_name] = arg;
+                        continue;
+                    }
+                }
+            }
         }
 
       private:
@@ -471,6 +555,8 @@ namespace argparse {
             { "--version", [this]() { this->print_version(); } },
             { "-V", [this]() { this->print_version(); } },
         };
+
+        std::size_t num_positional_args = 0;
     };
 
 } // namespace argparse
