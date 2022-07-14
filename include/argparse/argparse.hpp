@@ -122,12 +122,13 @@ namespace argparse {
         using flag_underlying_type = std::underlying_type<ArgFlags>::type;
 
       public:
-        ArgNames    names;
-        ArgTypes    type  = ArgTypes::STRING;
-        ArgFlags    flags = ArgFlags::DEFAULT;
-        std::string help_message;
-        std::string value;
-        bool        has_default_value = false;
+        ArgNames                   names;
+        ArgTypes                   type  = ArgTypes::STRING;
+        ArgFlags                   flags = ArgFlags::DEFAULT;
+        std::string                help_message;
+        std::string                value;
+        bool                       has_default_value = false;
+        std::optional<std::string> metavar;
 
       public:
         Arg() = default;
@@ -199,6 +200,12 @@ namespace argparse {
                 this->value = std::to_string(std::forward<T>(value));
             }
 
+            return *this;
+        }
+
+        Arg &set_metavar(const std::string &metavar)
+        {
+            this->metavar = metavar;
             return *this;
         }
     };
@@ -333,7 +340,8 @@ namespace argparse {
         {
             this->usage_message = utils::format("usage: % [-H] ", this->program_name);
             for (const auto &[arg_name, arg] : this->mapped_args) {
-                const auto common = utils::format("% %", arg_name, utils::to_upper(arg_name));
+                const auto common = utils::format(
+                  "% %", arg_name, !arg.metavar.has_value() ? utils::to_upper(arg_name) : arg.metavar.value());
                 this->usage_message += (arg.has_flag(ArgFlags::REQUIRED) ? common : format_as_optional(common));
                 this->usage_message += ' ';
             }
@@ -353,7 +361,10 @@ namespace argparse {
 
             for (const auto &[arg_name, arg] : this->mapped_args) {
                 const std::string message = utils::format(
-                  "  % % %\n", this->format_argument_names(arg.names), utils::to_upper(arg_name), arg.help_message);
+                  "  % % %\n",
+                  this->format_argument_names(arg.names),
+                  !arg.metavar.has_value() ? utils::to_upper(arg_name) : arg.metavar.value(),
+                  arg.help_message);
                 if (!arg.has_flag(ArgFlags::REQUIRED)) {
                     optional_ss << message;
                 } else {
