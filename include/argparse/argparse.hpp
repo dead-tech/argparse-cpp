@@ -135,7 +135,7 @@ namespace argparse {
         std::string                value;
         bool                       has_default_value = false;
         std::optional<std::string> metavar;
-        size_t                     position = 0;
+        size_t                     position = -1; // -1 means is not positional
 
       public:
         Arg() = default;
@@ -451,8 +451,7 @@ namespace argparse {
             Arg to_insert      = Arg{ ArgNames{ .aliases = names, .primary_name = names.front() }, ArgFlags::REQUIRED };
             to_insert.position = this->num_positional_args++;
 
-            const auto [it, success] = this->mapped_args.emplace(
-              names.front(), Arg{ ArgNames{ .aliases = names, .primary_name = names.front() }, ArgFlags::REQUIRED });
+            const auto [it, success] = this->mapped_args.emplace(names.front(), to_insert);
             return it->second;
         }
 
@@ -488,51 +487,57 @@ namespace argparse {
 
         void parse_positional_args(const std::vector<std::string> &positional_args)
         {
-            if (positional_args.empty()) { return; }
-
-            if (positional_args.size() > this->num_positional_args) {
+            if (positional_args.size() != this->num_positional_args) {
                 throw exceptions::ArgparseException(
                   std::source_location::current(),
-                  "[argparse] error: too many positional arguments provided, expected %",
-                  this->num_positional_args);
+                  "[argparse] error: wrong amount of positional arguments provided, % expected, % were provided",
+                  this->num_positional_args,
+                  positional_args.size());
             }
 
-            std::for_each(positional_args.begin(), positional_args.end(), [&](const auto &elem) {
+            if (positional_args.empty()) { return; }
+
+            size_t current_positional_argument{ 0 };
+            std::for_each(positional_args.begin(), positional_args.end(), [&](const auto &value) {
                 const auto to_update =
                   std::find_if(this->mapped_args.begin(), this->mapped_args.end(), [&](const auto &pair) {
-                      return elem == pair.second.names.primary_name;
+                      return current_positional_argument == pair.second.position;
                   });
-                to_update->second.value = elem;
+                to_update->second.value = value;
+                current_positional_argument++;
             });
         }
 
         void parse_optional_args(const std::vector<std::string> &optional_args)
         {
-            for (auto &[arg_name, arg] : this->mapped_args) {
-                const auto it = std::find_if(
-                  optional_args.begin(), optional_args.end(), [&](const auto elem) { return arg.has_name(elem); });
-                const auto arg_found = it != this->program_args.end();
+            if (optional_args.empty()) { return; }
+
+            for (auto it = optional_args.begin(); it != optional_args.end(); ++it) {
+                const auto arg_name = *it;
+
+                const auto to_update =
+                  std::find_if(this->mapped_args.begin(), this->mapped_args.end(), [&](const auto &pair) {
+                      return pair.second.has_name(arg_name);
+                  });
+                const auto arg_found = to_update != this->mapped_args.end();
+
+                auto &arg = to_update->second;
 
                 if (!arg_found && arg.has_flag(ArgFlags::REQUIRED) && !arg.has_default_value) {
                     this->error_required_arg(arg_name);
                     return;
                 }
 
-                if (optional_args.empty()) { return; }
-
-
                 if (arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
                         arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "false" : arg.value = "true";
-                        this->mapped_args[arg_name] = arg;
                         continue;
                     }
-                    arg.value                   = *std::next(it);
-                    this->mapped_args[arg_name] = arg;
+                    arg.value = *std::next(it);
+                    ++it;
                 } else if (!arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
                         arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "true" : arg.value = "false";
-                        this->mapped_args[arg_name] = arg;
                         continue;
                     }
                 }
