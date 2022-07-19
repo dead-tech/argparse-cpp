@@ -2,6 +2,7 @@
 #define ARGPARSE_HPP
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <charconv>
 #include <iomanip>
@@ -63,6 +64,39 @@ namespace argparse {
             result << fmt;
             return result.str();
         }
+
+        namespace impl {
+            template<StringLike... Args>
+            [[nodiscard]] static constexpr decltype(auto) str_to_int_helper(Args &&...args) // NOLINT
+            {
+                const auto helper = [](const std::string &value) {
+                    int result{};
+                    std::from_chars(value.data(), value.data() + value.size(), result); // NOLINT
+                    return result;
+                };
+
+                if constexpr (sizeof...(args) == 1) {
+                    return helper(args...);
+                } else {
+                    return std::vector{ str_to_int_helper(std::forward<Args>(args))... };
+                }
+            }
+
+        } // namespace impl
+
+        template<std::size_t N, std::size_t... Is>
+        [[nodiscard]] static constexpr decltype(auto)
+          str_to_int(const std::array<std::string, N> &arr, const std::index_sequence<Is...> &)
+        {
+            return impl::str_to_int_helper(arr[Is]...);
+        }
+
+        template<std::size_t N>
+        [[nodiscard]] static constexpr decltype(auto) str_to_int(const std::array<std::string, N> &arr)
+        {
+            return str_to_int(arr, std::make_index_sequence<N>{});
+        }
+
     } // namespace utils
 
     namespace exceptions {
@@ -127,15 +161,19 @@ namespace argparse {
       private:
         using flag_underlying_type = std::underlying_type<ArgFlags>::type;
 
+      private:
+        static constexpr std::size_t max_nargs = 64;
+
       public:
-        ArgNames                   names;
-        ArgTypes                   type  = ArgTypes::STRING;
-        ArgFlags                   flags = ArgFlags::DEFAULT;
-        std::string                help_message;
-        std::string                value;
-        bool                       has_default_value = false;
-        std::optional<std::string> metavar;
-        size_t                     position = -1; // -1 means is not positional
+        ArgNames                                names;
+        ArgTypes                                type  = ArgTypes::STRING;
+        ArgFlags                                flags = ArgFlags::DEFAULT;
+        std::string                             help_message;
+        std::array<std::string, Arg::max_nargs> values            = {};
+        bool                                    has_default_value = false;
+        std::optional<std::string>              metavar;
+        std::size_t                             position = -1; // -1 means is not positional
+        std::size_t                             nargs    = 1;
 
       public:
         Arg() = default;
@@ -150,22 +188,31 @@ namespace argparse {
         }
 
         template<typename ReturnType>
-        [[nodiscard]] auto as() const
+        [[nodiscard]] decltype(auto) as() const
         {
-            if constexpr (std::is_same<ReturnType, int>::value) {
-                int result{};
-                std::from_chars(
-                  this->value.data(),
-                  this->value.data() + this->value.size(), // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-                  result);
-                return result;
-            } else if constexpr (std::is_same<ReturnType, std::string>::value) {
-                return value;
-            } else if constexpr (std::is_same<ReturnType, bool>::value) {
-                return utils::str_to_bool(this->value);
+            static constexpr auto is_int        = std::is_integral_v<ReturnType> && !std::is_same_v<ReturnType, bool>;
+            static constexpr auto is_vec_int    = std::is_same_v<ReturnType, std::vector<int>>;
+            static constexpr auto is_string     = std::is_same_v<ReturnType, std::string>;
+            static constexpr auto is_vec_string = std::is_same_v<ReturnType, std::vector<std::string>>;
+            static constexpr auto is_bool       = std::is_same_v<ReturnType, bool>;
+
+            if constexpr (is_int) {
+                return utils::impl::str_to_int_helper(this->values.front());
+            } else if constexpr (is_vec_int) {
+                return utils::str_to_int(this->values);
+            } else if constexpr (is_string) {
+                return values.front();
+            } else if constexpr (is_vec_string) {
+                return std::vector(values.data(), values.data() + this->nargs);
+            } else if constexpr (is_bool) {
+                return utils::str_to_bool(this->values.front());
             }
 
-            assert(false && "unreachable");
+            throw exceptions::ArgparseException(
+              std::source_location::current(),
+              "as<%>() error: unsupported return type\nSupported types are: int, std::vector<int>, std::string, "
+              "std::vector<std::string>, bool\n",
+              typeid(ReturnType).name());
         }
 
         [[nodiscard]] bool has_flag(const ArgFlags &flag) const
@@ -201,11 +248,11 @@ namespace argparse {
         Arg &set_default(T &&value)
         {
             if constexpr (std::is_convertible_v<T, std::string>) {
-                this->value = std::forward<T>(value); // NOLINT
+                this->values.front() = std::forward<T>(value); // NOLINT
             } else if constexpr (std::is_same_v<T, bool>) {
-                this->value = utils::bool_to_str(std::forward<T>(value));
+                this->values.front() = utils::bool_to_str(std::forward<T>(value));
             } else {
-                this->value = std::to_string(std::forward<T>(value));
+                this->values.front() = std::to_string(std::forward<T>(value));
             }
 
             return *this;
@@ -214,6 +261,12 @@ namespace argparse {
         Arg &set_metavar(const std::string &metavar)
         {
             this->metavar = metavar;
+            return *this;
+        }
+
+        Arg &set_nargs(const std::size_t nargs)
+        {
+            this->nargs = nargs;
             return *this;
         }
     };
@@ -381,7 +434,8 @@ namespace argparse {
             } else if (primary_name == names.end() && aliases != names.end()) {
                 throw exceptions::ArgparseException(
                   std::source_location::current(),
-                  "[argparse] error: add_argument() needs at least one argument as a name (starting with '--' for non"
+                  "[argparse] error: add_argument() needs at least one argument as a name (starting with '--' for "
+                  "non"
                   "positional arguments)");
             }
 
@@ -487,7 +541,7 @@ namespace argparse {
 
         void parse_positional_args(const std::vector<std::string> &positional_args)
         {
-            if (positional_args.size() != this->num_positional_args) {
+            if (positional_args.size() < this->num_positional_args) {
                 throw exceptions::ArgparseException(
                   std::source_location::current(),
                   "[argparse] error: wrong amount of positional arguments provided, % expected, % were provided",
@@ -497,15 +551,29 @@ namespace argparse {
 
             if (positional_args.empty()) { return; }
 
-            size_t current_positional_argument{ 0 };
-            std::for_each(positional_args.begin(), positional_args.end(), [&](const auto &value) {
-                const auto to_update =
-                  std::find_if(this->mapped_args.begin(), this->mapped_args.end(), [&](const auto &pair) {
-                      return current_positional_argument == pair.second.position;
-                  });
-                to_update->second.value = value;
-                current_positional_argument++;
-            });
+            for (std::size_t current_positional_argument = 0; current_positional_argument < this->num_positional_args;
+                 ++current_positional_argument) {
+                auto &arg = std::find_if(this->mapped_args.begin(), this->mapped_args.end(), [&](const auto &pair) {
+                                return current_positional_argument == pair.second.position;
+                            })->second;
+
+                auto it = positional_args.begin();
+                std::advance(it, current_positional_argument);
+
+                this->check_enough_nargs(it, positional_args.end(), arg.nargs);
+
+                for (std::size_t i = 0; i < arg.nargs; ++i) {
+                    if (this->mapped_args.contains(*it)) {
+                        throw exceptions::ArgparseException(
+                          std::source_location::current(),
+                          "[argparse] error: wrong amount of positional arguments provided, % are expected, % were "
+                          "provided",
+                          arg.nargs,
+                          positional_args.size());
+                    }
+                    arg.values.at(i) = *it++;
+                }
+            }
         }
 
         void parse_optional_args(const std::vector<std::string> &optional_args)
@@ -530,17 +598,29 @@ namespace argparse {
 
                 if (arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
-                        arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "false" : arg.value = "true";
+                        auto &front = arg.values.front();
+                        front       = arg.has_flag(ArgFlags::STORE_FALSE) ? front = "false" : front = "true";
                         continue;
                     }
-                    arg.value = *std::next(it);
-                    ++it;
+                    this->check_enough_nargs(it, optional_args.end(), arg.nargs);
+                    for (std::size_t i = 0; i < arg.nargs; ++i) { arg.values.at(i) = *++it; }
                 } else if (!arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
-                        arg.value = arg.has_flag(ArgFlags::STORE_FALSE) ? arg.value = "true" : arg.value = "false";
+                        auto &front = arg.values.front();
+                        front       = arg.has_flag(ArgFlags::STORE_FALSE) ? front = "true" : front = "false";
                         continue;
                     }
                 }
+            }
+        }
+
+        void check_enough_nargs(auto it, const auto end, const std::size_t amount) const
+        {
+            if (it + (amount - 1) == end) {
+                throw exceptions::ArgparseException(
+                  std::source_location::current(),
+                  "[argparse] error: wrong amount of positional arguments provided, % are expected",
+                  amount);
             }
         }
 
