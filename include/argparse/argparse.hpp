@@ -177,8 +177,9 @@ namespace argparse {
         std::size_t                             actual_size       = 0;
         bool                                    has_default_value = false;
         std::optional<std::string>              metavar;
-        std::size_t                             position = -1; // -1 means is not positional
-        int                                     nargs    = 1;
+        std::size_t                             position        = -1; // -1 means is not positional
+        int                                     nargs           = 1;
+        bool                                    count_occurence = false;
 
       public:
         Arg() = default;
@@ -285,6 +286,13 @@ namespace argparse {
                   typeid(nargs).name());
             }
 
+            return *this;
+        }
+
+        Arg &count()
+        {
+            this->count_occurence = true;
+            this->type            = ArgTypes::BOOL;
             return *this;
         }
     };
@@ -559,9 +567,6 @@ namespace argparse {
 
         void parse_positional_args(const std::vector<std::string> &positional_args)
         {
-            for (const auto &elem : positional_args) { std::cout << elem << ' '; }
-            std::cout << '\n';
-
             const auto has_star = std::find_if(
                                     this->mapped_args.begin(),
                                     this->mapped_args.end(),
@@ -614,9 +619,6 @@ namespace argparse {
 
         void parse_optional_args(const std::vector<std::string> &optional_args)
         {
-            for (const auto &elem : optional_args) { std::cout << elem << ' '; }
-            std::cout << '\n';
-
             if (optional_args.empty()) { return; }
 
             for (auto it = optional_args.begin(); it != optional_args.end(); ++it) {
@@ -636,6 +638,18 @@ namespace argparse {
                 }
 
                 if (arg_found) {
+                    if (arg.count_occurence == true) {
+                        for (const auto &elem : optional_args) { std::cout << elem << ' '; }
+                        std::cout << '\n';
+                        const auto amount = std::count(it, optional_args.end(), arg_name);
+                        auto      &front  = arg.values.front();
+                        front             = std::to_string(amount);
+                        it += amount;
+
+                        if (std::distance(optional_args.begin(), it) > (optional_args.size() - 1)) { break; }
+
+                        continue;
+                    }
                     if (arg.type == ArgTypes::BOOL) {
                         auto &front = arg.values.front();
                         front       = arg.has_flag(ArgFlags::STORE_FALSE) ? front = "false" : front = "true";
