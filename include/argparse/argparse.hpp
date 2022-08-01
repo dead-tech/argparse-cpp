@@ -165,15 +165,20 @@ namespace argparse {
         static constexpr std::size_t max_nargs = 64;
 
       public:
+        static constexpr int plus = '+' - '0';
+        static constexpr int star = '*' - '0';
+
+      public:
         ArgNames                                names;
         ArgTypes                                type  = ArgTypes::STRING;
         ArgFlags                                flags = ArgFlags::DEFAULT;
         std::string                             help_message;
         std::array<std::string, Arg::max_nargs> values            = {};
+        std::size_t                             actual_size       = 0;
         bool                                    has_default_value = false;
         std::optional<std::string>              metavar;
         std::size_t                             position = -1; // -1 means is not positional
-        std::size_t                             nargs    = 1;
+        int                                     nargs    = 1;
 
       public:
         Arg() = default;
@@ -203,7 +208,7 @@ namespace argparse {
             } else if constexpr (is_string) {
                 return values.front();
             } else if constexpr (is_vec_string) {
-                return std::vector(values.data(), values.data() + this->nargs);
+                return std::vector(values.data(), values.data() + this->actual_size);
             } else if constexpr (is_bool) {
                 return utils::str_to_bool(this->values.front());
             }
@@ -264,9 +269,22 @@ namespace argparse {
             return *this;
         }
 
-        Arg &set_nargs(const std::size_t nargs)
+        Arg &set_nargs(const auto nargs)
         {
-            this->nargs = nargs;
+            static constexpr auto is_number = std::is_same_v<decltype(nargs), const int>;
+            static constexpr auto is_symbol = std::is_same_v<decltype(nargs), const char>;
+
+            if constexpr (is_number) {
+                this->nargs = nargs;
+            } else if constexpr (is_symbol) {
+                this->nargs = nargs - '0';
+            } else {
+                throw exceptions::ArgparseException(
+                  std::source_location::current(),
+                  "set_nargs() error: unsupported type: %\nSupported types are: int, std::string\n",
+                  typeid(nargs).name());
+            }
+
             return *this;
         }
     };
@@ -541,7 +559,16 @@ namespace argparse {
 
         void parse_positional_args(const std::vector<std::string> &positional_args)
         {
-            if (positional_args.size() < this->num_positional_args) {
+            for (const auto &elem : positional_args) { std::cout << elem << ' '; }
+            std::cout << '\n';
+
+            const auto has_star = std::find_if(
+                                    this->mapped_args.begin(),
+                                    this->mapped_args.end(),
+                                    [&](const auto &pair) { return pair.second.nargs == Arg::star; })
+                                  != this->mapped_args.end();
+
+            if (positional_args.size() < this->num_positional_args && !has_star) {
                 throw exceptions::ArgparseException(
                   std::source_location::current(),
                   "[argparse] error: wrong amount of positional arguments provided, % expected, % were provided",
@@ -560,6 +587,15 @@ namespace argparse {
                 auto it = positional_args.begin();
                 std::advance(it, current_positional_argument);
 
+                if (arg.nargs == Arg::plus) {
+                    this->check_enough_nargs(it, positional_args.end(), 1);
+                    for (; it != positional_args.end(); ++it) { arg.values.at(arg.actual_size++) = *it; }
+                    return;
+                } else if (arg.nargs == Arg::star) {
+                    for (; it != positional_args.end(); ++it) { arg.values.at(arg.actual_size++) = *it; }
+                    return;
+                }
+
                 this->check_enough_nargs(it, positional_args.end(), arg.nargs);
 
                 for (std::size_t i = 0; i < arg.nargs; ++i) {
@@ -571,13 +607,16 @@ namespace argparse {
                           arg.nargs,
                           positional_args.size());
                     }
-                    arg.values.at(i) = *it++;
+                    arg.values.at(arg.actual_size++) = *it++;
                 }
             }
         }
 
         void parse_optional_args(const std::vector<std::string> &optional_args)
         {
+            for (const auto &elem : optional_args) { std::cout << elem << ' '; }
+            std::cout << '\n';
+
             if (optional_args.empty()) { return; }
 
             for (auto it = optional_args.begin(); it != optional_args.end(); ++it) {
@@ -603,7 +642,7 @@ namespace argparse {
                         continue;
                     }
                     this->check_enough_nargs(it, optional_args.end(), arg.nargs);
-                    for (std::size_t i = 0; i < arg.nargs; ++i) { arg.values.at(i) = *++it; }
+                    for (std::size_t i = 0; i < arg.nargs; ++i) { arg.values.at(arg.actual_size++) = *++it; }
                 } else if (!arg_found) {
                     if (arg.type == ArgTypes::BOOL) {
                         auto &front = arg.values.front();
