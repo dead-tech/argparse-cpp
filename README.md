@@ -2,11 +2,22 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/dead-tech/argparse-cpp/main.svg)](https://results.pre-commit.ci/latest/github/dead-tech/argparse-cpp/main)
 # argparse-cpp
 
-Argument Parser inspired by python's argparse module.
+Argument Parser in C++ inspired by python's argparse module.
+
+## Table of contents
+   * [Basic Example](#example)
+   * [Quickstart](#quickstart)
+      * [Conan](#using-conan-package-manager)
+      * [Source Code](#download-source-code-from-latest-release)
+      * [Header File](#downloading-the-header-file)
+      * [Clone Repo](#cloning-the-repo)
+   * [Documentation](#documentation)
+   * [Testing](#testing)
+   * [License](#license)
 
 ## Example
 
-Simple example program to print the content of the file at the given filepath
+Simple example program that emulates an hypothetically compiler CLI.
 
 ```cpp
 #include <argparse/argparse.hpp>
@@ -18,21 +29,60 @@ int main(int argc, const char **argv)
 {
     argparse::ArgumentParser parser(argc, argv);
 
-    parser.add_argument("--file-path", argparse::ArgTypes::STRING, true);
+   parser.add_argument("files")
+         .set_type(argparse::ArgTypes::STRING)
+         .set_default("test.txt")
+         .set_help("Paths to the files to compile")
+         .set_flags(argparse::ArgFlags::REQUIRED)
+         .set_metavar("FILE_PATH")
+         .set_nargs('+');
 
-    const auto args = parser.parse_args();
+   parser.add_argument("--release", "-R")
+         .set_type(argparse::ArgTypes::BOOL)
+         .set_help("Build in release version");
 
-    const auto file_path = args.at("--file-path").as<std::string>();
+   const auto args = parser.parse_args();
 
-    std::ifstream file(file_path);
-    std::stringstream ss{};
-    ss << file.rdbuf();
+   const auto files = args.at("files").as<std::vector<std::string>>();
+   const auto is_release = args.at("--release").as<bool>();
 
-    std::cout << ss.str() << '\n';
+   const auto result = build_files(files, is_release);
 }
 ```
 
 ## Quickstart
+
+### Using conan package manager
+
+**Starting from release [v0.1.0](https://github.com/dead-tech/argparse-cpp/releases/tag/v0.1.0) it is possible to use conan to install the header only library from the artifactory remote.**
+
+- Create a simple conanfile.txt in the root of your project
+
+   ```txt
+   [requires]
+   argparse-cpp/0.1.0@dead/stable
+
+   [generators]
+   cmake
+   ```
+
+- Move into directory where you want to build your project
+
+   ```console
+   cd <build-dir>
+   ```
+
+- Add the artifactory remote to your conan profile
+
+   ```console
+   conan remote add argparse-cpp https://argparsecpp.jfrog.io/artifactory/api/conan/argparse-cpp-conan-local
+   ```
+
+- Run conan install
+
+   ```console
+   conan install .. -r argparse-cpp
+   ```
 
 ### Download source code from latest release
 
@@ -61,6 +111,10 @@ Scroll down to the assets section and download the source code (zip or tar.gz)
    ```
 - Include the file in your source dode
 
+## Documentation
+
+Documentation is still work in progress.
+
 ## Testing
 
 This project uses catch2 as a testing framework.
@@ -76,3 +130,7 @@ $ mkdir build && cd build
 $ cmake .. && make
 $ ./argparse-cpp_tests
 ```
+
+## License
+
+The project is licensed under MIT License (see [LICENSE](LICENSE)).
