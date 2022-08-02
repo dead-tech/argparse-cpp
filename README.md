@@ -69,20 +69,20 @@ int main(int argc, const char **argv)
 
 - Move into directory where you want to build your project
 
-   ```console
-   cd <build-dir>
+   ```bash
+   $ cd <build-dir>
    ```
 
 - Add the artifactory remote to your conan profile
 
-   ```console
-   conan remote add argparse-cpp https://argparsecpp.jfrog.io/artifactory/api/conan/argparse-cpp-conan-local
+   ```bash
+   $ conan remote add argparse-cpp https://argparsecpp.jfrog.io/artifactory/api/conan/argparse-cpp-conan-local
    ```
 
 - Run conan install
 
-   ```console
-   conan install .. -r argparse-cpp
+   ```bash
+   $ conan install .. -r argparse-cpp
    ```
 
 ### Download source code from latest release
@@ -93,19 +93,19 @@ Scroll down to the assets section and download the source code (zip or tar.gz).
 ### Downloading the header file
 
 - Get the file through wget
-   ```console
+   ```bash
    $ wget https://raw.githubusercontent.com/dead-tech/argparse-cpp/main/include/argparse/argparse.hpp
    ```
 
 ### Cloning the repo
 
 - Clone the repo
-   ```console
+   ```bash
    $ git clone https://github.com/dead-tech/argparse-cpp.git
    $ cd argparse-cpp
    ```
 - Move the header file
-   ```console
+   ```bash
    $ mv include/argparse.hpp <your-project-include-path>
    ```
 
@@ -121,7 +121,7 @@ All the available tests can be found [here](tests/).
 
 The following steps are what is required to run the test suite.
 
-```console
+```bash
 $ git clone https://github.com/dead-tech/argparse-cpp.git
 $ cd argparse-cpp
 $ mkdir build && cd build
