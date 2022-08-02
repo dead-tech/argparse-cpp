@@ -87,17 +87,15 @@ int main(int argc, const char **argv)
 
 ### Download source code from latest release
 
-Click on the releases header on the right side of the GitHub page or navigate [here](https://github.com/dead-tech/argparse-cpp/releases)
+Click on the releases header on the right side of the GitHub page or navigate [here](https://github.com/dead-tech/argparse-cpp/releases).
 
-Scroll down to the assets section and download the source code (zip or tar.gz)
+Scroll down to the assets section and download the source code (zip or tar.gz).
 ### Downloading the header file
 
 - Get the file through wget
    ```console
    $ wget https://raw.githubusercontent.com/dead-tech/argparse-cpp/main/include/argparse/argparse.hpp
    ```
-- Add the file into your include path
-- Include the file in your source dode
 
 ### Cloning the repo
 
@@ -110,11 +108,10 @@ Scroll down to the assets section and download the source code (zip or tar.gz)
    ```console
    $ mv include/argparse.hpp <your-project-include-path>
    ```
-- Include the file in your source dode
 
 ## Documentation
 
-Documentation can be found [here](dead-tech.github.io/argparse-cpp)
+Documentation can be found [here](dead-tech.github.io/argparse-cpp).
 
 ## Testing
 
@@ -128,9 +125,12 @@ The following steps are what is required to run the test suite.
 $ git clone https://github.com/dead-tech/argparse-cpp.git
 $ cd argparse-cpp
 $ mkdir build && cd build
+$ conan install ..
 $ cmake .. && make
 $ ./argparse-cpp_tests
 ```
+
+If these steps do not work properly for you see the [official docs](https://dead-tech.github.io/argparse-cpp/user_guide/running_tests.html)
 
 ## License
 
