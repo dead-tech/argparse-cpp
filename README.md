@@ -61,10 +61,10 @@ int main(int argc, const char **argv)
 
    ```txt
    [requires]
-   argparse-cpp/0.1.1@dead/stable
+     argparse-cpp/0.1.1@dead/stable
 
    [generators]
-   cmake
+     cmake
    ```
 
 - Move into directory where you want to build your project
