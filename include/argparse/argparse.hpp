@@ -345,7 +345,7 @@ namespace argparse {
             if (const auto builtin = this->get_builtin_if(); builtin.has_value()) {
                 const auto fn = builtin.value();
                 fn();
-                return {};
+                exit(0);
             }
 
             const auto [positional_args, optional_args] = this->split_program_args();
@@ -639,8 +639,6 @@ namespace argparse {
 
                 if (arg_found) {
                     if (arg.count_occurence == true) {
-                        for (const auto &elem : optional_args) { std::cout << elem << ' '; }
-                        std::cout << '\n';
                         const auto amount = std::count(it, optional_args.end(), arg_name);
                         auto      &front  = arg.values.front();
                         front             = std::to_string(amount);
