@@ -1,4 +1,5 @@
 ![Build Status](https://github.com/dead-tech/argparse-cpp/actions/workflows/linux.yml/badge.svg)
+![Deploy Status](https://github.com/dead-tech/argparse-cpp/actions/workflows/deploy.yml/badge.svg)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/dead-tech/argparse-cpp/main.svg)](https://results.pre-commit.ci/latest/github/dead-tech/argparse-cpp/main)
 # argparse-cpp
 
@@ -113,7 +114,7 @@ Scroll down to the assets section and download the source code (zip or tar.gz)
 
 ## Documentation
 
-Documentation is still work in progress.
+Documentation can be found [here](dead-tech.github.io/argparse-cpp)
 
 ## Testing
 
