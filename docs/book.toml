@@ -1,0 +1,6 @@
+[book]
+authors = ["dead-tech"]
+language = "en"
+multilingual = false
+src = "src"
+title = "argparse-cpp Documentation"
