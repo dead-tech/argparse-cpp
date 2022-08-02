@@ -1,6 +1,8 @@
 [book]
-authors = ["dead-tech"]
-language = "en"
-multilingual = false
-src = "src"
 title = "argparse-cpp Documentation"
+description = "Argument Parser in C++ inspired by python's argparse module"
+authors = ["Luca Natilla"]
+language = "en"
+
+[output.html]
+git-repository-url = "https://github.com/dead-tech/argparse-cpp"
