@@ -130,7 +130,7 @@ $ cmake .. && make
 $ ./argparse-cpp_tests
 ```
 
-If these steps do not work properly for you see the [official docs](https://dead-tech.github.io/argparse-cpp/user_guide/running_tests.html)
+If these steps do not work properly for you see the [official docs](https://dead-tech.github.io/argparse-cpp/user_guide/running_tests.html).
 
 ## License
 
