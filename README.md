@@ -61,7 +61,7 @@ int main(int argc, const char **argv)
 
    ```txt
    [requires]
-   argparse-cpp/0.1.0@dead/stable
+   argparse-cpp/0.1.1@dead/stable
 
    [generators]
    cmake
