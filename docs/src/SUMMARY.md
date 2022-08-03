@@ -22,6 +22,3 @@
 - [set_nargs()](./in_depth/arg_methods/set_nargs.md)
 - [count()](./in_depth/arg_methods/count.md)
 - [as()](in_depth/arg_methods/as.md)
-
-# Doxygen
-- [Docs](./doxygen/index.md)
