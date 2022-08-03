@@ -40,7 +40,3 @@ if (arg_kind == ArgKind::Positional) {
     return this->add_optional_argument(data, primary_name.value());
 }
 ```
-
-<br>
-
-`add_argument()` method full [source code](https://github.com/dead-tech/argparse-cpp/blob/main/include/argparse/argparse.hpp#L317-L338).

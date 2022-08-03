@@ -6,3 +6,4 @@ language = "en"
 
 [output.html]
 git-repository-url = "https://github.com/dead-tech/argparse-cpp"
+no-section-label = true
