@@ -25,7 +25,7 @@ namespace argparse {
         concept StringLike = std::is_convertible_v<T, std::string>;
 
         template<typename T>
-        concept Streamable = requires(std::ostream &os, const T &value)
+        concept Streamable = requires(std::ostream & os, const T &value)
         {
             // clang-format off
             { os << value } -> std::convertible_to<std::ostream &>;
